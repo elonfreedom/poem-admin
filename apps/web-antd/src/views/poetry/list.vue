@@ -2,6 +2,7 @@
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { Poetry, PoetryListParams } from '#/api';
 
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Page, useVbenDrawer, VbenTableAction } from '@vben/common-ui';
@@ -11,6 +12,7 @@ import { Button, message, Modal } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
+  batchUpdatePoetryStatusApi,
   deletePoetryApi,
   getPoetryListApi,
   updatePoetryStatusApi,
@@ -20,6 +22,9 @@ import { useColumns, useGridFormSchema } from './data';
 import Form from './modules/form.vue';
 
 const router = useRouter();
+
+const selectedIds = ref<number[]>([]);
+const selectedStatus = ref<'archived' | 'draft' | 'published' | null>(null);
 
 const [FormDrawer] = useVbenDrawer({
   connectedComponent: Form,
@@ -51,6 +56,19 @@ const [Grid, gridApi] = useVbenVxeGrid({
     rowConfig: {
       keyField: 'id',
     },
+    checkboxConfig: {
+      reserve: true,
+      highlight: true,
+      range: true,
+      trigger: 'both',
+      checkMethod({ row }: { row: Poetry }) {
+        // 已有选中时，禁用不同状态的行的 checkbox
+        if (selectedStatus.value && selectedStatus.value !== row.status) {
+          return false;
+        }
+        return true;
+      },
+    },
     toolbarConfig: {
       custom: false,
       export: false,
@@ -59,6 +77,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
       zoom: false,
     },
   } as VxeTableGridOptions<Poetry>,
+  gridEvents: {
+    checkboxChange: ({ checked, row }: { checked: boolean; row: Poetry }) =>
+      onCheckboxChange({ checked, row }),
+    checkboxAll: (params: { checked: boolean; rows?: Poetry[] }) => {
+      const rows = params.rows ?? gridApi.grid.getTableData().tableData;
+      onCheckboxAll({ checked: params.checked, rows });
+    },
+  },
 });
 
 function confirm(content: string, title: string) {
@@ -128,12 +154,105 @@ function onDelete(row: Poetry) {
 function onRefresh() {
   gridApi.query();
 }
+
+function onCheckboxChange({ checked, row }: { checked: boolean; row: Poetry }) {
+  if (checked) {
+    selectedIds.value.push(row.id);
+    if (!selectedStatus.value) {
+      selectedStatus.value = row.status;
+    }
+  } else {
+    selectedIds.value = selectedIds.value.filter((id) => id !== row.id);
+    if (selectedIds.value.length === 0) {
+      selectedStatus.value = null;
+    }
+  }
+}
+
+function onCheckboxAll({
+  checked,
+  rows,
+}: {
+  checked: boolean;
+  rows: Poetry[];
+}) {
+  if (checked) {
+    // 过滤掉禁用的行（不同状态的）
+    const selectableRows = rows.filter(
+      (r) => !selectedStatus.value || selectedStatus.value === r.status,
+    );
+    selectedIds.value = selectableRows.map((r) => r.id);
+    selectedStatus.value = selectableRows[0]?.status ?? null;
+  } else {
+    selectedIds.value = [];
+    selectedStatus.value = null;
+  }
+}
+
+async function onBatchPublish() {
+  if (selectedIds.value.length === 0) {
+    message.warning('请先选择要发布的诗歌');
+    return;
+  }
+  try {
+    await confirm(
+      `确定批量发布选中的 ${selectedIds.value.length} 首诗歌吗？`,
+      '批量发布',
+    );
+    await batchUpdatePoetryStatusApi(selectedIds.value, 'published');
+    message.success('批量发布成功');
+    selectedIds.value = [];
+    selectedStatus.value = null;
+    onRefresh();
+  } catch {
+    // cancelled
+  }
+}
+
+async function onBatchArchive() {
+  if (selectedIds.value.length === 0) {
+    message.warning('请先选择要归档的诗歌');
+    return;
+  }
+  try {
+    await confirm(
+      `确定批量归档选中的 ${selectedIds.value.length} 首诗歌吗？`,
+      '批量归档',
+    );
+    await batchUpdatePoetryStatusApi(selectedIds.value, 'archived');
+    message.success('批量归档成功');
+    selectedIds.value = [];
+    selectedStatus.value = null;
+    onRefresh();
+  } catch {
+    // cancelled
+  }
+}
 </script>
 
 <template>
   <Page auto-content-height>
     <FormDrawer @success="onRefresh" />
     <Grid>
+      <template #toolbar-actions>
+        <div class="flex items-center gap-2">
+          <template v-if="selectedIds.length > 0">
+            <Button
+              v-if="selectedStatus === 'draft'"
+              type="primary"
+              @click="onBatchPublish"
+            >
+              批量发布({{ selectedIds.length }})
+            </Button>
+            <Button
+              v-if="selectedStatus === 'published'"
+              @click="onBatchArchive"
+            >
+              批量归档({{ selectedIds.length }})
+            </Button>
+          </template>
+        </div>
+      </template>
       <template #expand-after>
         <Button type="primary" @click="onCreate">
           <Plus class="size-5" />

@@ -43,6 +43,11 @@ export function useGridFormSchema(): VbenFormSchema[] {
 export function useColumns(): VxeTableGridColumns {
   return [
     {
+      type: 'checkbox',
+      width: 60,
+      fixed: 'left',
+    },
+    {
       field: 'id',
       title: 'ID',
       width: 80,
@@ -73,6 +78,14 @@ export function useColumns(): VxeTableGridColumns {
       width: 100,
       cellRender: {
         name: 'CellTag',
+      },
+      formatter({ row }: { row: { status: string } }) {
+        const statusLabels: Record<string, string> = {
+          draft: '草稿',
+          published: '已发布',
+          archived: '已归档',
+        };
+        return statusLabels[row.status] ?? row.status;
       },
     },
     {

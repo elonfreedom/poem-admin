@@ -70,6 +70,13 @@ export async function updatePoetryStatusApi(id: number, status: string) {
   return requestClient.put<Poetry>(`/poems/${id}/status`, { status });
 }
 
+export async function batchUpdatePoetryStatusApi(
+  ids: number[],
+  status: string,
+) {
+  return requestClient.put('/poems/batch/status', { ids, status });
+}
+
 export interface ImportError {
   index: number;
   title: string;
