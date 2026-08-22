@@ -107,7 +107,7 @@ function onCreate() {
 }
 
 function onEdit(row: Poetry) {
-  router.push(`/${row.id}/edit`);
+  router.push(`/poetry/${row.id}/edit`);
 }
 
 async function onPublish(row: Poetry) {
