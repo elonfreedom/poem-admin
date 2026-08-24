@@ -11,6 +11,7 @@ const routes: RouteRecordRaw[] = [
     },
     name: 'Dashboard',
     path: '/dashboard',
+    redirect: '/dashboard/overview',
     children: [
       {
         name: 'DashboardOverview',

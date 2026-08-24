@@ -16,6 +16,8 @@
 ## 功能架构
 ```
 后台管理
+├── 用户管理
+│   └── 前端用户管理
 ├── 诗歌管理
 │   ├── 诗歌 CRUD
 │   ├── 状态管理（草稿/发布/归档）
@@ -35,6 +37,10 @@
 ## 功能清单
 | 模块 | 功能 | 优先级 |
 |-----|------|--------|
+| 用户管理 | 用户列表 | P0 |
+| 用户管理 | 用户详情 | P0 |
+| 用户管理 | 禁用/启用用户 | P0 |
+| 用户管理 | 重置密码 | P1 |
 | 诗歌管理 | 诗歌 CRUD | P0 |
 | 诗歌管理 | 状态管理 | P0 |
 | 诗歌管理 | 分类 CRUD | P0 |
@@ -49,7 +55,107 @@
 
 ---
 
-## 一、诗歌管理
+## 一、用户管理
+
+### 目标
+管理前端 App 用户，支持查看用户信息、禁用/启用用户。
+
+### 用户列表
+- 分页展示所有前端用户（仅 role=user）
+- 支持筛选：关键词（昵称、邮箱）、状态（正常/禁用）
+- 列表信息：ID、昵称、邮箱（脱敏）、状态、注册时间
+
+### 用户详情
+- 查看用户完整信息
+- 显示用户统计数据：
+  - 累计打卡天数
+  - 当前连续天数
+  - 收藏数量
+  - 阅读计划数量
+  - Passkey 数量
+
+### 用户操作
+- **禁用用户**：封禁违规用户，禁用后无法登录 App
+- **启用用户**：恢复已禁用用户的登录权限
+- **重置密码**（P1）：生成新密码发送给用户
+
+### 状态说明
+| 状态 | 说明 |
+|-----|------|
+| active | 正常，可登录 |
+| disabled | 已禁用，无法登录 |
+
+### API 接口
+
+| 方法 | 路径 | 说明 |
+|-----|------|------|
+| GET | /api/admin/users | 用户列表（分页、筛选） |
+| GET | /api/admin/users/:id | 用户详情（含统计数据） |
+| PUT | /api/admin/users/:id/status | 更新用户状态（禁用/启用） |
+
+### 用户列表请求参数
+| 参数 | 类型 | 默认值 | 说明 |
+|-----|------|--------|------|
+| page | int | 1 | 页码 |
+| page_size | int | 20 | 每页数量 |
+| keyword | string | - | 搜索关键词（匹配昵称、邮箱） |
+| status | string | - | 状态筛选：active/disabled |
+
+### 用户列表响应
+```json
+{
+  "code": 0,
+  "data": {
+    "total": 100,
+    "list": [
+      {
+        "id": "uuid",
+        "nickname": "诗友",
+        "email": "abc***@example.com",
+        "role": "user",
+        "status": "active",
+        "created_at": "2026-08-24T10:46:58Z"
+      }
+    ]
+  },
+  "message": "ok"
+}
+```
+
+### 用户详情响应
+```json
+{
+  "code": 0,
+  "data": {
+    "id": "uuid",
+    "nickname": "诗友",
+    "email": "abc***@example.com",
+    "role": "user",
+    "status": "active",
+    "created_at": "2026-08-24T10:46:58Z",
+    "stats": {
+      "total_checkin_days": 30,
+      "consecutive_days": 5,
+      "favorites_count": 12,
+      "reading_plans_count": 3,
+      "passkeys_count": 2
+    }
+  },
+  "message": "ok"
+}
+```
+
+### 状态更新请求
+```
+PUT /api/admin/users/:id/status
+Content-Type: application/json
+
+{ "status": "disabled" }
+```
+
+---
+
+## 二、诗歌管理
 
 ### 1. 诗歌管理
 
