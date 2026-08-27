@@ -12,6 +12,7 @@ export interface Poetry {
   category_name?: string;
   tags?: string[];
   cover_url?: string;
+  source?: string;
   status: 'archived' | 'draft' | 'published';
   created_by?: string;
   created_at?: string;
@@ -43,6 +44,7 @@ export interface CreatePoetryParams {
   category_id?: number;
   tags?: string[];
   cover_url?: string;
+  source?: string;
   status: string;
 }
 
@@ -90,6 +92,13 @@ export interface ImportResult {
   errors: ImportError[];
 }
 
-export async function importPoetryApi(data: CreatePoetryParams[]) {
+export interface ImportPoetryPayload {
+  source?: string;
+  poems: CreatePoetryParams[];
+}
+
+export async function importPoetryApi(
+  data: CreatePoetryParams[] | ImportPoetryPayload,
+) {
   return requestClient.post<ImportResult>('/poems/import', data);
 }

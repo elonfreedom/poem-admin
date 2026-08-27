@@ -20,7 +20,7 @@ const route = useRoute();
 const router = useRouter();
 const submitting = ref(false);
 const loading = ref(false);
-const detail = ref<Poetry | null>(null);
+const detail = ref<null | Poetry>(null);
 const id = Number(route.params.id);
 
 const statusLabels: Record<string, string> = {
@@ -93,6 +93,14 @@ const formSchema: VbenFormSchema[] = [
     label: '封面图URL',
   },
   {
+    fieldName: 'source',
+    component: 'Input',
+    label: '来源',
+    componentProps: {
+      placeholder: '如《唐诗三百首》《宋词三百首》',
+    },
+  },
+  {
     fieldName: 'tags',
     component: 'Input',
     label: '标签',
@@ -133,6 +141,7 @@ async function fetchDetail() {
     formApi.setValues({
       ...data,
       tags: data.tags?.join(', ') || '',
+      source: data.source || '',
     });
   } finally {
     loading.value = false;
@@ -209,9 +218,7 @@ onMounted(fetchDetail);
     <div v-else class="space-y-4">
       <!-- 元信息卡片 -->
       <div v-if="detail" class="card-box p-4">
-        <h3 class="mb-3 text-sm font-medium text-muted-foreground">
-          基本信息
-        </h3>
+        <h3 class="mb-3 text-sm font-medium text-muted-foreground">基本信息</h3>
         <div class="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
           <div class="flex items-center gap-2">
             <span class="text-muted-foreground">ID</span>
@@ -236,6 +243,12 @@ onMounted(fetchDetail);
             </span>
           </div>
           <div class="flex items-center gap-2">
+            <span class="text-muted-foreground">来源</span>
+            <span class="font-medium text-foreground">
+              {{ detail.source || '-' }}
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
             <span class="text-muted-foreground">创建时间</span>
             <span class="text-foreground">{{ detail.created_at || '-' }}</span>
           </div>
@@ -248,9 +261,7 @@ onMounted(fetchDetail);
 
       <!-- 表单卡片 -->
       <div class="card-box p-4">
-        <h3 class="mb-4 text-sm font-medium text-muted-foreground">
-          编辑内容
-        </h3>
+        <h3 class="mb-4 text-sm font-medium text-muted-foreground">编辑内容</h3>
         <Form />
       </div>
     </div>

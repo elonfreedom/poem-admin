@@ -72,6 +72,14 @@ const formSchema: VbenFormSchema[] = [
     label: '封面图URL',
   },
   {
+    fieldName: 'source',
+    component: 'Input',
+    label: '来源',
+    componentProps: {
+      placeholder: '如《唐诗三百首》《宋词三百首》',
+    },
+  },
+  {
     fieldName: 'status',
     component: 'Select',
     label: '状态',

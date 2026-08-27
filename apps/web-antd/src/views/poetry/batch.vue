@@ -31,6 +31,7 @@ const targetFields: TargetField[] = [
   { key: 'category_id', label: '分类ID' },
   { key: 'tags', label: '标签', isArray: true },
   { key: 'cover_url', label: '封面图URL' },
+  { key: 'source', label: '来源' },
   { key: 'status', label: '状态' },
   { key: 'translation', label: '翻译' },
   { key: 'appreciation', label: '赏析' },
@@ -45,6 +46,7 @@ const defaultMappingCandidates: Record<string, string[]> = {
   category_id: ['category_id', 'category', '分类ID', '分类'],
   tags: ['tags', 'tag', '标签', '类别'],
   cover_url: ['cover_url', 'cover', 'image', '封面', '图片'],
+  source: ['source', '来源', '出处', '来源书籍', '书目'],
   status: ['status', '状态'],
   translation: ['translation', '翻译', '译文'],
   appreciation: ['appreciation', 'appreciate', 'note', '赏析', '注释', '备注'],
@@ -92,6 +94,7 @@ function applyMapping(
     category_id: getNum('category_id'),
     tags: getArr('tags'),
     cover_url: getStr('cover_url'),
+    source: getStr('source'),
     status: getStr('status') || 'draft',
     translation: getStr('translation'),
     appreciation: getStr('appreciation'),
@@ -111,6 +114,8 @@ const importResult = ref<null | {
   total: number;
 }>(null);
 
+// 统一来源：应用到本次导入的所有诗文
+const defaultSource = ref('');
 // 字段映射配置：目标字段 -> 源字段
 const fieldMapping = ref<Record<string, string>>({});
 // 源文件中的所有字段名
@@ -201,14 +206,26 @@ async function parseFile(file: File) {
 }
 
 async function handleBatchImport() {
-  const validPoems = parsedPoems.value.filter(
+  let validPoems = parsedPoems.value.filter(
     (_, index) => validatedPoems.value[index]?.valid,
   );
   if (validPoems.length === 0) return;
 
+  // 如果有统一来源，应用到未填写来源的诗文
+  if (defaultSource.value.trim()) {
+    validPoems = validPoems.map((poem) => ({
+      ...poem,
+      source: poem.source || defaultSource.value.trim(),
+    }));
+  }
+
   importing.value = true;
   try {
-    importResult.value = await importPoetryApi(validPoems);
+    // 支持统一来源时发送新格式 { source, poems }
+    const payload = defaultSource.value.trim()
+      ? { source: defaultSource.value.trim(), poems: validPoems }
+      : validPoems;
+    importResult.value = await importPoetryApi(payload as CreatePoetryParams[]);
     if (importResult.value.failed === 0) {
       setTimeout(() => router.push('/poetry/list'), 1500);
     }
@@ -230,6 +247,7 @@ function downloadTemplate() {
       category_id: 1,
       tags: ['思乡', '月亮'],
       cover_url: '',
+      source: '《唐诗三百首》',
       status: 'draft',
     },
   ];
@@ -254,6 +272,7 @@ function resetBatch() {
   fieldMapping.value = {};
   sourceFields.value = [];
   showRawJson.value = false;
+  defaultSource.value = '';
 }
 </script>
 
@@ -321,6 +340,24 @@ function resetBatch() {
         <VbenButton size="small" @click="applyMappingAndParse">
           应用映射
         </VbenButton>
+      </div>
+
+      <!-- 统一来源输入 -->
+      <div
+        class="mb-4 flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50/50 px-4 py-3"
+      >
+        <label class="shrink-0 text-sm font-medium text-blue-700">
+          统一来源
+        </label>
+        <input
+          v-model="defaultSource"
+          type="text"
+          placeholder="设置后应用到本次导入的所有诗文（如《唐诗三百首》）"
+          class="h-8 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+        />
+        <span class="shrink-0 text-xs text-gray-500">
+          优先级低于字段映射中的来源列
+        </span>
       </div>
 
       <div class="rounded-lg border border-gray-200 p-4">
@@ -479,6 +516,7 @@ function resetBatch() {
               <th class="w-24 px-3 py-2 text-left font-medium">作者</th>
               <th class="w-20 px-3 py-2 text-left font-medium">朝代</th>
               <th class="px-3 py-2 text-left font-medium">内容</th>
+              <th class="w-32 px-3 py-2 text-left font-medium">来源</th>
               <th class="w-20 px-3 py-2 text-left font-medium">状态</th>
               <th class="w-16 px-3 py-2 text-left font-medium">校验</th>
             </tr>
@@ -495,6 +533,13 @@ function resetBatch() {
               <td class="px-3 py-2">{{ record.poem.dynasty || '-' }}</td>
               <td class="max-w-xs truncate px-3 py-2">
                 {{ record.poem.content || '-' }}
+              </td>
+              <td class="max-w-[120px] truncate px-3 py-2">
+                <span v-if="record.poem.source">{{ record.poem.source }}</span>
+                <span v-else-if="defaultSource" class="italic text-blue-500">
+                  {{ defaultSource }}（默认）
+                </span>
+                <span v-else class="text-gray-400">-</span>
               </td>
               <td class="px-3 py-2">
                 <span

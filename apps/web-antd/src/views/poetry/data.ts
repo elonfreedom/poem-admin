@@ -73,6 +73,14 @@ export function useColumns(): VxeTableGridColumns {
       width: 100,
     },
     {
+      field: 'source',
+      title: '来源',
+      minWidth: 120,
+      formatter({ row }: { row: { source?: string } }) {
+        return row.source || '-';
+      },
+    },
+    {
       field: 'status',
       title: '状态',
       width: 100,
