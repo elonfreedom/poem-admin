@@ -19,7 +19,7 @@ type Vowel = keyof typeof TONE_MARKS;
 // 带音标字符 → 无声调字符
 const TONE_MARK_TO_PLAIN: Record<string, string> = {};
 for (const [plain, tones] of Object.entries(TONE_MARKS)) {
-  tones.forEach((mark, _idx) => {
+  tones.forEach((mark) => {
     if (mark !== plain) {
       TONE_MARK_TO_PLAIN[mark] = plain;
     }
