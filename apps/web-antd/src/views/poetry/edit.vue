@@ -2,7 +2,7 @@
 import type { VbenFormSchema } from '#/adapter/form';
 import type { CreatePoetryParams, Poetry } from '#/api';
 
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, useTemplateRef } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Page, VbenButton } from '@vben/common-ui';
@@ -15,6 +15,7 @@ import {
   updatePoetryApi,
   useVbenForm,
 } from '#/api';
+import InputWithPinyin from '#/components/InputWithPinyin.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -22,6 +23,16 @@ const submitting = ref(false);
 const loading = ref(false);
 const detail = ref<null | Poetry>(null);
 const id = Number(route.params.id);
+
+// 拼音组件的 ref
+const titlePinyinRef = useTemplateRef('titlePinyin');
+const authorPinyinRef = useTemplateRef('authorPinyin');
+const contentPinyinRef = useTemplateRef('contentPinyin');
+
+// 简体文本（可修正）
+const titleSc = ref('');
+const authorSc = ref('');
+const contentSc = ref('');
 
 const statusLabels: Record<string, string> = {
   draft: '草稿',
@@ -38,15 +49,23 @@ const statusColors: Record<string, string> = {
 const formSchema: VbenFormSchema[] = [
   {
     fieldName: 'title',
-    component: 'Input',
+    component: InputWithPinyin,
     label: '标题',
     rules: 'required',
+    componentProps: {
+      type: 'input',
+      placeholder: '请输入标题',
+    },
   },
   {
     fieldName: 'author',
-    component: 'Input',
+    component: InputWithPinyin,
     label: '作者',
     rules: 'required',
+    componentProps: {
+      type: 'input',
+      placeholder: '请输入作者',
+    },
   },
   {
     fieldName: 'dynasty',
@@ -64,11 +83,13 @@ const formSchema: VbenFormSchema[] = [
   },
   {
     fieldName: 'content',
-    component: 'Textarea',
+    component: InputWithPinyin,
     label: '内容',
     rules: 'required',
     componentProps: {
-      rows: 6,
+      type: 'textarea',
+      rows: 4,
+      placeholder: '请输入内容',
     },
   },
   {
@@ -124,9 +145,10 @@ const formSchema: VbenFormSchema[] = [
 
 const [Form, formApi] = useVbenForm({
   schema: formSchema,
-  wrapperClass: 'grid-cols-1 md:grid-cols-2',
+  wrapperClass: 'grid-cols-1',
   commonConfig: {
     formItemClass: 'mb-4',
+    labelClass: 'font-medium',
   },
   handleSubmit() {
     handleSubmit();
@@ -138,11 +160,33 @@ async function fetchDetail() {
   try {
     const data = await getPoetryDetailApi(id);
     detail.value = data;
+    // 设置简体文本
+    titleSc.value = data.title_sc || '';
+    authorSc.value = data.author_sc || '';
+    contentSc.value = data.content_sc || '';
     formApi.setValues({
       ...data,
       tags: data.tags?.join(', ') || '',
       source: data.source || '',
     });
+    // 等组件渲染后再设置拼音
+    setTimeout(() => {
+      if (data.title_pinyin) {
+        titlePinyinRef.value?.setPinyinList(
+          data.title_pinyin.split(/\s+/).filter(Boolean),
+        );
+      }
+      if (data.author_pinyin) {
+        authorPinyinRef.value?.setPinyinList(
+          data.author_pinyin.split(/\s+/).filter(Boolean),
+        );
+      }
+      if (data.content_pinyin) {
+        contentPinyinRef.value?.setPinyinList(
+          data.content_pinyin.split(/\s+/).filter(Boolean),
+        );
+      }
+    }, 100);
   } finally {
     loading.value = false;
   }
@@ -152,9 +196,15 @@ async function handleSubmit() {
   try {
     const values = (await formApi.getValues()) as CreatePoetryParams;
     submitting.value = true;
-    // 将标签字符串转为数组
     const submitData = {
       ...values,
+      title_pinyin: titlePinyinRef.value?.getPinyinString() || '',
+      author_pinyin: authorPinyinRef.value?.getPinyinString() || '',
+      content_pinyin: contentPinyinRef.value?.getPinyinString() || '',
+      title_sc: titlePinyinRef.value?.getSimplifiedString() || titleSc.value,
+      author_sc: authorPinyinRef.value?.getSimplifiedString() || authorSc.value,
+      content_sc:
+        contentPinyinRef.value?.getSimplifiedString() || contentSc.value,
       tags: values.tags
         ? String(values.tags)
             .split(',')
@@ -262,7 +312,45 @@ onMounted(fetchDetail);
       <!-- 表单卡片 -->
       <div class="card-box p-4">
         <h3 class="mb-4 text-sm font-medium text-muted-foreground">编辑内容</h3>
-        <Form />
+        <Form>
+          <template #title="{ modelValue, 'onUpdate:modelValue': onUpdate }">
+            <InputWithPinyin
+              ref="titlePinyin"
+              :model-value="modelValue"
+              :simplified-value="titleSc"
+              type="input"
+              placeholder="请输入标题"
+              show-convert
+              @update:model-value="onUpdate"
+              @update:simplified-value="titleSc = $event"
+            />
+          </template>
+          <template #author="{ modelValue, 'onUpdate:modelValue': onUpdate }">
+            <InputWithPinyin
+              ref="authorPinyin"
+              :model-value="modelValue"
+              :simplified-value="authorSc"
+              type="input"
+              placeholder="请输入作者"
+              show-convert
+              @update:model-value="onUpdate"
+              @update:simplified-value="authorSc = $event"
+            />
+          </template>
+          <template #content="{ modelValue, 'onUpdate:modelValue': onUpdate }">
+            <InputWithPinyin
+              ref="contentPinyin"
+              :model-value="modelValue"
+              :simplified-value="contentSc"
+              type="textarea"
+              :rows="4"
+              placeholder="请输入内容"
+              show-convert
+              @update:model-value="onUpdate"
+              @update:simplified-value="contentSc = $event"
+            />
+          </template>
+        </Form>
       </div>
     </div>
   </Page>

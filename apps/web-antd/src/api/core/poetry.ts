@@ -3,9 +3,15 @@ import { requestClient } from '#/api/request';
 export interface Poetry {
   id: number;
   title: string;
+  title_pinyin?: string;
+  title_sc?: string;
   author: string;
+  author_pinyin?: string;
+  author_sc?: string;
   dynasty?: string;
   content: string;
+  content_pinyin?: string;
+  content_sc?: string;
   translation?: string;
   appreciation?: string;
   category_id?: number;
@@ -36,9 +42,15 @@ export interface PoetryListResponse {
 
 export interface CreatePoetryParams {
   title: string;
+  title_pinyin?: string;
+  title_sc?: string;
   author: string;
+  author_pinyin?: string;
+  author_sc?: string;
   dynasty?: string;
   content: string;
+  content_pinyin?: string;
+  content_sc?: string;
   translation?: string;
   appreciation?: string;
   category_id?: number;
@@ -101,4 +113,16 @@ export async function importPoetryApi(
   data: CreatePoetryParams[] | ImportPoetryPayload,
 ) {
   return requestClient.post<ImportResult>('/poems/import', data);
+}
+
+export interface BatchConvertResult {
+  total: number;
+  converted: number;
+  message: string;
+}
+
+export async function batchConvertSimplifiedApi() {
+  return requestClient.post<BatchConvertResult>(
+    '/poems/batch/convert-simplified',
+  );
 }
