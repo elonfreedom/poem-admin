@@ -13,7 +13,24 @@ const statusColors: Record<string, string> = {
   archived: 'warning',
 };
 
-export { statusColors, statusOptions };
+const dynastyOptions = [
+  { label: '先秦', value: '先秦' },
+  { label: '汉', value: '汉' },
+  { label: '魏晋', value: '魏晋' },
+  { label: '南北朝', value: '南北朝' },
+  { label: '隋', value: '隋' },
+  { label: '唐', value: '唐' },
+  { label: '五代', value: '五代' },
+  { label: '宋', value: '宋' },
+  { label: '元', value: '元' },
+  { label: '明', value: '明' },
+  { label: '清', value: '清' },
+  { label: '近代', value: '近代' },
+  { label: '现代', value: '现代' },
+  { label: '未知', value: '未知' },
+];
+
+export { dynastyOptions, statusColors, statusOptions };
 
 export function useGridFormSchema(): VbenFormSchema[] {
   return [
@@ -25,6 +42,16 @@ export function useGridFormSchema(): VbenFormSchema[] {
         allowClear: true,
         placeholder: '搜索标题或作者',
         class: 'w-48',
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'dynasty',
+      label: '朝代',
+      componentProps: {
+        allowClear: true,
+        options: dynastyOptions,
+        class: 'w-28',
       },
     },
     {

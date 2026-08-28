@@ -7,15 +7,17 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { Page, VbenButton } from '@vben/common-ui';
 
-import { message, Modal, Tag } from 'ant-design-vue';
+import { message, Modal, Select, Tag } from 'ant-design-vue';
 
 import {
   deletePoetryApi,
+  getAuthorOptionsApi,
   getPoetryDetailApi,
   updatePoetryApi,
   useVbenForm,
 } from '#/api';
 import InputWithPinyin from '#/components/InputWithPinyin.vue';
+import type { AuthorOption } from '#/api/core/author';
 
 const route = useRoute();
 const router = useRouter();
@@ -26,13 +28,17 @@ const id = Number(route.params.id);
 
 // 拼音组件的 ref
 const titlePinyinRef = useTemplateRef('titlePinyin');
-const authorPinyinRef = useTemplateRef('authorPinyin');
 const contentPinyinRef = useTemplateRef('contentPinyin');
 
 // 简体文本（可修正）
 const titleSc = ref('');
-const authorSc = ref('');
 const contentSc = ref('');
+
+// 作者相关
+const authorOptions = ref<AuthorOption[]>([]);
+const authorLoading = ref(false);
+const selectedAuthorId = ref<number | undefined>(undefined);
+const authorText = ref('');
 
 const statusLabels: Record<string, string> = {
   draft: '草稿',
@@ -59,12 +65,11 @@ const formSchema: VbenFormSchema[] = [
   },
   {
     fieldName: 'author',
-    component: InputWithPinyin,
+    component: 'Input',
     label: '作者',
     rules: 'required',
     componentProps: {
-      type: 'input',
-      placeholder: '请输入作者',
+      style: { display: 'none' },
     },
   },
   {
@@ -155,6 +160,47 @@ const [Form, formApi] = useVbenForm({
   },
 });
 
+// 搜索作者
+async function handleAuthorSearch(keyword: string) {
+  if (!keyword) {
+    authorOptions.value = [];
+    return;
+  }
+  authorLoading.value = true;
+  try {
+    const data = await getAuthorOptionsApi(keyword);
+    authorOptions.value = data;
+  } finally {
+    authorLoading.value = false;
+  }
+}
+
+// 选择作者
+function handleAuthorSelect(value: number | undefined) {
+  selectedAuthorId.value = value;
+  if (value) {
+    const author = authorOptions.value.find((a) => a.id === value);
+    if (author) {
+      authorText.value = author.name;
+      formApi.setValues({ author: author.name, dynasty: author.dynasty });
+    }
+  }
+}
+
+// 作者文本变化
+function handleAuthorTextChange(value: string) {
+  authorText.value = value;
+  formApi.setValues({ author: value });
+  if (value && selectedAuthorId.value) {
+    const author = authorOptions.value.find(
+      (a) => a.id === selectedAuthorId.value,
+    );
+    if (author && author.name !== value) {
+      selectedAuthorId.value = undefined;
+    }
+  }
+}
+
 async function fetchDetail() {
   loading.value = true;
   try {
@@ -162,8 +208,10 @@ async function fetchDetail() {
     detail.value = data;
     // 设置简体文本
     titleSc.value = data.title_sc || '';
-    authorSc.value = data.author_sc || '';
     contentSc.value = data.content_sc || '';
+    // 设置作者
+    authorText.value = data.author || '';
+    selectedAuthorId.value = data.author_id;
     formApi.setValues({
       ...data,
       tags: data.tags?.join(', ') || '',
@@ -174,11 +222,6 @@ async function fetchDetail() {
       if (data.title_pinyin) {
         titlePinyinRef.value?.setPinyinList(
           data.title_pinyin.split(/\s+/).filter(Boolean),
-        );
-      }
-      if (data.author_pinyin) {
-        authorPinyinRef.value?.setPinyinList(
-          data.author_pinyin.split(/\s+/).filter(Boolean),
         );
       }
       if (data.content_pinyin) {
@@ -194,15 +237,20 @@ async function fetchDetail() {
 
 async function handleSubmit() {
   try {
+    await formApi.validate();
+    if (!authorText.value?.trim()) {
+      message.warning('请输入作者');
+      return;
+    }
     const values = (await formApi.getValues()) as CreatePoetryParams;
     submitting.value = true;
     const submitData = {
       ...values,
+      author: authorText.value,
+      author_id: selectedAuthorId.value,
       title_pinyin: titlePinyinRef.value?.getPinyinString() || '',
-      author_pinyin: authorPinyinRef.value?.getPinyinString() || '',
       content_pinyin: contentPinyinRef.value?.getPinyinString() || '',
       title_sc: titlePinyinRef.value?.getSimplifiedString() || titleSc.value,
-      author_sc: authorPinyinRef.value?.getSimplifiedString() || authorSc.value,
       content_sc:
         contentPinyinRef.value?.getSimplifiedString() || contentSc.value,
       tags: values.tags
@@ -325,17 +373,36 @@ onMounted(fetchDetail);
               @update:simplified-value="titleSc = $event"
             />
           </template>
-          <template #author="{ modelValue, 'onUpdate:modelValue': onUpdate }">
-            <InputWithPinyin
-              ref="authorPinyin"
-              :model-value="modelValue"
-              :simplified-value="authorSc"
-              type="input"
-              placeholder="请输入作者"
-              show-convert
-              @update:model-value="onUpdate"
-              @update:simplified-value="authorSc = $event"
-            />
+          <template #author>
+            <div>
+              <Select
+                :value="selectedAuthorId"
+                :options="
+                  authorOptions.map((a) => ({
+                    label: `${a.name}（${a.dynasty}）`,
+                    value: a.id,
+                  }))
+                "
+                :loading="authorLoading"
+                allow-clear
+                show-search
+                :filter-option="false"
+                placeholder="搜索或选择作者"
+                style="width: 100%"
+                @search="handleAuthorSearch"
+                @select="handleAuthorSelect"
+                @clear="selectedAuthorId = undefined"
+              />
+              <input
+                :value="authorText"
+                type="text"
+                placeholder="手动输入作者姓名"
+                class="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                @input="
+                  handleAuthorTextChange(($event.target as HTMLInputElement).value)
+                "
+              />
+            </div>
           </template>
           <template #content="{ modelValue, 'onUpdate:modelValue': onUpdate }">
             <InputWithPinyin

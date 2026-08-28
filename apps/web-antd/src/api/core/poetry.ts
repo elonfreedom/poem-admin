@@ -6,6 +6,7 @@ export interface Poetry {
   title_pinyin?: string;
   title_sc?: string;
   author: string;
+  author_id?: number;
   author_pinyin?: string;
   author_sc?: string;
   dynasty?: string;
@@ -31,6 +32,8 @@ export interface PoetryListParams {
   keyword?: string;
   category_id?: number;
   status?: string;
+  dynasty?: string;
+  author_id?: number;
   start_date?: string;
   end_date?: string;
 }
@@ -45,6 +48,7 @@ export interface CreatePoetryParams {
   title_pinyin?: string;
   title_sc?: string;
   author: string;
+  author_id?: number;
   author_pinyin?: string;
   author_sc?: string;
   dynasty?: string;
@@ -123,6 +127,32 @@ export interface BatchConvertResult {
 
 export async function batchConvertSimplifiedApi() {
   return requestClient.post<BatchConvertResult>(
-    '/poems/batch/convert-simplified',
+    '/tools/convert-simplified',
+  );
+}
+
+export interface GenerateAuthorsResult {
+  total_unique: number;
+  created: number;
+  skipped: number;
+  message: string;
+}
+
+export async function generateAuthorsApi() {
+  return requestClient.post<GenerateAuthorsResult>(
+    '/tools/generate-authors',
+  );
+}
+
+export interface BatchMatchResult {
+  total: number;
+  matched: number;
+  message: string;
+}
+
+export async function batchMatchAuthorsApi(poetryIds?: number[]) {
+  return requestClient.post<BatchMatchResult>(
+    '/authors/batch/match',
+    { poetry_ids: poetryIds ?? [] },
   );
 }

@@ -12,7 +12,6 @@ import { Button, message, Modal } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
-  batchConvertSimplifiedApi,
   batchUpdatePoetryStatusApi,
   deletePoetryApi,
   getPoetryListApi,
@@ -230,27 +229,8 @@ async function onBatchArchive() {
   }
 }
 
-async function onBatchConvert() {
-  try {
-    await confirm(
-      '确定要为所有存量诗歌生成简体文本吗？此操作将遍历所有诗歌并自动生成简体版本。',
-      '批量生成简体',
-    );
-    const hideLoading = message.loading({
-      content: '正在处理中...',
-      duration: 0,
-      key: 'convert_msg',
-    });
-    const result = await batchConvertSimplifiedApi();
-    hideLoading();
-    message.success({
-      content: `处理完成：共 ${result.total} 首，转换 ${result.converted} 首`,
-      key: 'convert_msg',
-    });
-    onRefresh();
-  } catch {
-    // cancelled
-  }
+function onBatchConvert() {
+  router.push('/tools');
 }
 </script>
 
@@ -279,7 +259,7 @@ async function onBatchConvert() {
       </template>
       <template #expand-after>
         <div class="flex items-center gap-2">
-          <Button @click="onBatchConvert">批量生成简体</Button>
+          <Button @click="onBatchConvert">工具</Button>
           <Button type="primary" @click="onCreate">
             <Plus class="size-5" />
             录入诗歌

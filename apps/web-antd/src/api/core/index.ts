@@ -1,5 +1,6 @@
 export * from './announcement';
 export * from './auth';
+export * from './author';
 export * from './banner';
 export * from './category';
 export * from './menu';
