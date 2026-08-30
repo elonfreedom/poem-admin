@@ -3,6 +3,7 @@ export * from './auth';
 export * from './author';
 export * from './banner';
 export * from './category';
+export * from './checkin';
 export * from './menu';
 export * from './poetry';
 export * from './stats';

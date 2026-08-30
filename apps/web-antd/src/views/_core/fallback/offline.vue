@@ -1,9 +1,19 @@
 <script lang="ts" setup>
-import { Fallback } from '@vben/common-ui';
+import { useRouter } from 'vue-router';
 
-defineOptions({ name: 'FallbackOfflineDemo' });
+import { Button, Result } from 'ant-design-vue';
+
+const router = useRouter();
 </script>
 
 <template>
-  <Fallback status="offline" />
+  <Result
+    status="warning"
+    title="网络异常"
+    sub-title="请检查您的网络连接后重试"
+  >
+    <template #extra>
+      <Button type="primary" @click="router.push('/')">返回首页</Button>
+    </template>
+  </Result>
 </template>

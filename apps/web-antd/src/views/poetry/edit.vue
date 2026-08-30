@@ -1,22 +1,32 @@
 <script lang="ts" setup>
-import type { VbenFormSchema } from '#/adapter/form';
 import type { CreatePoetryParams, Poetry } from '#/api';
 
 import { onMounted, ref, useTemplateRef } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { Page, VbenButton } from '@vben/common-ui';
+import { DeleteOutlined, SaveOutlined } from '@ant-design/icons-vue';
+import {
+  Button,
+  Card,
+  Form,
+  FormItem,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Space,
+  Tag,
+  message,
+} from 'ant-design-vue';
 
-import { message, Modal, Select, Tag } from 'ant-design-vue';
-
+import PageHeader from '#/components/PageHeader.vue';
+import InputWithPinyin from '#/components/InputWithPinyin.vue';
 import {
   deletePoetryApi,
   getAuthorOptionsApi,
   getPoetryDetailApi,
   updatePoetryApi,
-  useVbenForm,
 } from '#/api';
-import InputWithPinyin from '#/components/InputWithPinyin.vue';
 import type { AuthorOption } from '#/api/core/author';
 
 const route = useRoute();
@@ -25,6 +35,8 @@ const submitting = ref(false);
 const loading = ref(false);
 const detail = ref<null | Poetry>(null);
 const id = Number(route.params.id);
+
+const formRef = ref();
 
 // 拼音组件的 ref
 const titlePinyinRef = useTemplateRef('titlePinyin');
@@ -52,113 +64,27 @@ const statusColors: Record<string, string> = {
   archived: 'warning',
 };
 
-const formSchema: VbenFormSchema[] = [
-  {
-    fieldName: 'title',
-    component: InputWithPinyin,
-    label: '标题',
-    rules: 'required',
-    componentProps: {
-      type: 'input',
-      placeholder: '请输入标题',
-    },
-  },
-  {
-    fieldName: 'author',
-    component: 'Input',
-    label: '作者',
-    rules: 'required',
-    componentProps: {
-      style: { display: 'none' },
-    },
-  },
-  {
-    fieldName: 'dynasty',
-    component: 'Input',
-    label: '朝代',
-  },
-  {
-    fieldName: 'category_id',
-    component: 'InputNumber',
-    label: '分类ID',
-    componentProps: {
-      style: { width: '100%' },
-      min: 1,
-    },
-  },
-  {
-    fieldName: 'content',
-    component: InputWithPinyin,
-    label: '内容',
-    rules: 'required',
-    componentProps: {
-      type: 'textarea',
-      rows: 4,
-      placeholder: '请输入内容',
-    },
-  },
-  {
-    fieldName: 'translation',
-    component: 'Textarea',
-    label: '翻译',
-    componentProps: {
-      rows: 4,
-    },
-  },
-  {
-    fieldName: 'appreciation',
-    component: 'Textarea',
-    label: '赏析',
-    componentProps: {
-      rows: 4,
-    },
-  },
-  {
-    fieldName: 'cover_url',
-    component: 'Input',
-    label: '封面图URL',
-  },
-  {
-    fieldName: 'source',
-    component: 'Input',
-    label: '来源',
-    componentProps: {
-      placeholder: '如《唐诗三百首》《宋词三百首》',
-    },
-  },
-  {
-    fieldName: 'tags',
-    component: 'Input',
-    label: '标签',
-    componentProps: {
-      placeholder: '输入标签后按回车添加',
-    },
-  },
-  {
-    fieldName: 'status',
-    component: 'Select',
-    label: '状态',
-    componentProps: {
-      options: [
-        { label: '草稿', value: 'draft' },
-        { label: '发布', value: 'published' },
-        { label: '归档', value: 'archived' },
-      ],
-    },
-  },
-];
-
-const [Form, formApi] = useVbenForm({
-  schema: formSchema,
-  wrapperClass: 'grid-cols-1',
-  commonConfig: {
-    formItemClass: 'mb-4',
-    labelClass: 'font-medium',
-  },
-  handleSubmit() {
-    handleSubmit();
-  },
+// 表单数据
+const formData = ref({
+  title: '',
+  author: '',
+  dynasty: '',
+  category_id: undefined as number | undefined,
+  content: '',
+  translation: '',
+  appreciation: '',
+  cover_url: '',
+  source: '',
+  tags: '',
+  status: 'draft',
 });
+
+// 状态选项
+const statusOptions = [
+  { label: '草稿', value: 'draft' },
+  { label: '发布', value: 'published' },
+  { label: '归档', value: 'archived' },
+];
 
 // 搜索作者
 async function handleAuthorSearch(keyword: string) {
@@ -176,13 +102,14 @@ async function handleAuthorSearch(keyword: string) {
 }
 
 // 选择作者
-function handleAuthorSelect(value: number | undefined) {
-  selectedAuthorId.value = value;
+function handleAuthorSelect(value: any) {
+  selectedAuthorId.value = value as number | undefined;
   if (value) {
     const author = authorOptions.value.find((a) => a.id === value);
     if (author) {
       authorText.value = author.name;
-      formApi.setValues({ author: author.name, dynasty: author.dynasty });
+      formData.value.author = author.name;
+      formData.value.dynasty = author.dynasty;
     }
   }
 }
@@ -190,7 +117,7 @@ function handleAuthorSelect(value: number | undefined) {
 // 作者文本变化
 function handleAuthorTextChange(value: string) {
   authorText.value = value;
-  formApi.setValues({ author: value });
+  formData.value.author = value;
   if (value && selectedAuthorId.value) {
     const author = authorOptions.value.find(
       (a) => a.id === selectedAuthorId.value,
@@ -212,11 +139,19 @@ async function fetchDetail() {
     // 设置作者
     authorText.value = data.author || '';
     selectedAuthorId.value = data.author_id;
-    formApi.setValues({
-      ...data,
-      tags: data.tags?.join(', ') || '',
+    formData.value = {
+      title: data.title || '',
+      author: data.author || '',
+      dynasty: data.dynasty || '',
+      category_id: data.category_id,
+      content: data.content || '',
+      translation: data.translation || '',
+      appreciation: data.appreciation || '',
+      cover_url: data.cover_url || '',
       source: data.source || '',
-    });
+      tags: data.tags?.join(', ') || '',
+      status: data.status || 'draft',
+    };
     // 等组件渲染后再设置拼音
     setTimeout(() => {
       if (data.title_pinyin) {
@@ -237,15 +172,14 @@ async function fetchDetail() {
 
 async function handleSubmit() {
   try {
-    await formApi.validate();
+    await formRef.value.validate();
     if (!authorText.value?.trim()) {
       message.warning('请输入作者');
       return;
     }
-    const values = (await formApi.getValues()) as CreatePoetryParams;
     submitting.value = true;
     const submitData = {
-      ...values,
+      ...formData.value,
       author: authorText.value,
       author_id: selectedAuthorId.value,
       title_pinyin: titlePinyinRef.value?.getPinyinString() || '',
@@ -253,14 +187,14 @@ async function handleSubmit() {
       title_sc: titlePinyinRef.value?.getSimplifiedString() || titleSc.value,
       content_sc:
         contentPinyinRef.value?.getSimplifiedString() || contentSc.value,
-      tags: values.tags
-        ? String(values.tags)
+      tags: formData.value.tags
+        ? String(formData.value.tags)
             .split(',')
             .map((t) => t.trim())
             .filter(Boolean)
         : [],
     };
-    await updatePoetryApi(id, submitData);
+    await updatePoetryApi(id, submitData as CreatePoetryParams);
     message.success('保存成功');
     router.push('/poetry/list');
   } catch {
@@ -300,125 +234,202 @@ onMounted(fetchDetail);
 </script>
 
 <template>
-  <Page title="编辑诗歌">
-    <template #extra>
-      <div class="flex items-center gap-2">
-        <VbenButton @click="router.push('/poetry/list')">返回列表</VbenButton>
-        <VbenButton danger type="primary" @click="handleDelete">
-          删除
-        </VbenButton>
-      </div>
-    </template>
+  <div>
+    <PageHeader title="编辑诗歌">
+      <template #extra>
+        <Space>
+          <Button @click="router.push('/poetry/list')">返回列表</Button>
+          <Button danger type="primary" @click="handleDelete">
+            <DeleteOutlined />
+            删除
+          </Button>
+        </Space>
+      </template>
+    </PageHeader>
 
-    <div v-if="loading" class="py-10 text-center text-muted-foreground">
+    <div v-if="loading" class="py-10 text-center text-gray-500">
       加载中...
     </div>
     <div v-else class="space-y-4">
       <!-- 元信息卡片 -->
-      <div v-if="detail" class="card-box p-4">
-        <h3 class="mb-3 text-sm font-medium text-muted-foreground">基本信息</h3>
+      <Card v-if="detail" size="small">
+        <h3 class="mb-3 text-sm font-medium text-gray-500">基本信息</h3>
         <div class="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
           <div class="flex items-center gap-2">
-            <span class="text-muted-foreground">ID</span>
-            <span class="font-medium text-foreground">{{ detail.id }}</span>
+            <span class="text-gray-500">ID</span>
+            <span class="font-medium">{{ detail.id }}</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-muted-foreground">状态</span>
+            <span class="text-gray-500">状态</span>
             <Tag :color="statusColors[detail.status]">
               {{ statusLabels[detail.status] }}
             </Tag>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-muted-foreground">分类</span>
-            <span class="font-medium text-foreground">
+            <span class="text-gray-500">分类</span>
+            <span class="font-medium">
               {{ detail.category_name || '-' }}
             </span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-muted-foreground">作者</span>
-            <span class="font-medium text-foreground">
+            <span class="text-gray-500">作者</span>
+            <span class="font-medium">
               {{ detail.author || '-' }}
             </span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-muted-foreground">来源</span>
-            <span class="font-medium text-foreground">
+            <span class="text-gray-500">来源</span>
+            <span class="font-medium">
               {{ detail.source || '-' }}
             </span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-muted-foreground">创建时间</span>
-            <span class="text-foreground">{{ detail.created_at || '-' }}</span>
+            <span class="text-gray-500">创建时间</span>
+            <span>{{ detail.created_at || '-' }}</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-muted-foreground">更新时间</span>
-            <span class="text-foreground">{{ detail.updated_at || '-' }}</span>
+            <span class="text-gray-500">更新时间</span>
+            <span>{{ detail.updated_at || '-' }}</span>
           </div>
         </div>
-      </div>
+      </Card>
 
       <!-- 表单卡片 -->
-      <div class="card-box p-4">
-        <h3 class="mb-4 text-sm font-medium text-muted-foreground">编辑内容</h3>
-        <Form>
-          <template #title="{ modelValue, 'onUpdate:modelValue': onUpdate }">
+      <Card size="small">
+        <h3 class="mb-4 text-sm font-medium text-gray-500">编辑内容</h3>
+        <Form
+          ref="formRef"
+          :model="formData"
+          layout="vertical"
+          @finish="handleSubmit"
+        >
+          <!-- 标题（带拼音） -->
+          <FormItem label="标题" name="title" required>
             <InputWithPinyin
               ref="titlePinyin"
-              :model-value="modelValue"
+              v-model:value="formData.title"
               :simplified-value="titleSc"
               type="input"
               placeholder="请输入标题"
               show-convert
-              @update:model-value="onUpdate"
               @update:simplified-value="titleSc = $event"
             />
-          </template>
-          <template #author>
-            <div>
-              <Select
-                :value="selectedAuthorId"
-                :options="
-                  authorOptions.map((a) => ({
-                    label: `${a.name}（${a.dynasty}）`,
-                    value: a.id,
-                  }))
-                "
-                :loading="authorLoading"
-                allow-clear
-                show-search
-                :filter-option="false"
-                placeholder="搜索或选择作者"
-                style="width: 100%"
-                @search="handleAuthorSearch"
-                @select="handleAuthorSelect"
-                @clear="selectedAuthorId = undefined"
-              />
-              <input
-                :value="authorText"
-                type="text"
-                placeholder="手动输入作者姓名"
-                class="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                @input="
-                  handleAuthorTextChange(($event.target as HTMLInputElement).value)
-                "
-              />
-            </div>
-          </template>
-          <template #content="{ modelValue, 'onUpdate:modelValue': onUpdate }">
+          </FormItem>
+
+          <!-- 作者（搜索选择 + 手动输入） -->
+          <FormItem label="作者" name="author" required>
+            <Select
+              :value="selectedAuthorId"
+              :options="
+                authorOptions.map((a) => ({
+                  label: `${a.name}（${a.dynasty}）`,
+                  value: a.id,
+                }))
+              "
+              :loading="authorLoading"
+              allow-clear
+              show-search
+              :filter-option="false"
+              placeholder="搜索或选择作者"
+              @search="handleAuthorSearch"
+              @update:value="handleAuthorSelect"
+              @clear="selectedAuthorId = undefined"
+            />
+            <Input
+              :value="authorText"
+              placeholder="手动输入作者姓名"
+              class="mt-2"
+              @input="
+                handleAuthorTextChange(($event.target as HTMLInputElement).value)
+              "
+            />
+          </FormItem>
+
+          <!-- 朝代 -->
+          <FormItem label="朝代" name="dynasty">
+            <Input v-model:value="formData.dynasty" placeholder="自动填充或手动输入" />
+          </FormItem>
+
+          <!-- 分类ID -->
+          <FormItem label="分类ID" name="category_id">
+            <InputNumber
+              v-model:value="formData.category_id"
+              :min="1"
+              style="width: 100%"
+              placeholder="请输入分类ID"
+            />
+          </FormItem>
+
+          <!-- 内容（带拼音） -->
+          <FormItem label="内容" name="content" required>
             <InputWithPinyin
               ref="contentPinyin"
-              :model-value="modelValue"
+              v-model:value="formData.content"
               :simplified-value="contentSc"
               type="textarea"
               :rows="4"
               placeholder="请输入内容"
               show-convert
-              @update:model-value="onUpdate"
               @update:simplified-value="contentSc = $event"
             />
-          </template>
+          </FormItem>
+
+          <!-- 翻译 -->
+          <FormItem label="翻译" name="translation">
+            <Input.TextArea
+              v-model:value="formData.translation"
+              :rows="4"
+              placeholder="请输入翻译（可选）"
+            />
+          </FormItem>
+
+          <!-- 赏析 -->
+          <FormItem label="赏析" name="appreciation">
+            <Input.TextArea
+              v-model:value="formData.appreciation"
+              :rows="4"
+              placeholder="请输入赏析（可选）"
+            />
+          </FormItem>
+
+          <!-- 封面图URL -->
+          <FormItem label="封面图URL" name="cover_url">
+            <Input v-model:value="formData.cover_url" placeholder="请输入封面图URL" />
+          </FormItem>
+
+          <!-- 来源 -->
+          <FormItem label="来源" name="source">
+            <Input
+              v-model:value="formData.source"
+              placeholder="如《唐诗三百首》《宋词三百首》"
+            />
+          </FormItem>
+
+          <!-- 标签 -->
+          <FormItem label="标签" name="tags">
+            <Input
+              v-model:value="formData.tags"
+              placeholder="输入标签后按回车添加"
+            />
+          </FormItem>
+
+          <!-- 状态 -->
+          <FormItem label="状态" name="status">
+            <Select v-model:value="formData.status" :options="statusOptions" />
+          </FormItem>
+
+          <!-- 提交按钮 -->
+          <FormItem>
+            <Space>
+              <Button type="primary" :loading="submitting" html-type="submit">
+                <SaveOutlined />
+                保存
+              </Button>
+              <Button @click="router.push('/poetry/list')">取消</Button>
+            </Space>
+          </FormItem>
         </Form>
-      </div>
+      </Card>
     </div>
-  </Page>
+  </div>
 </template>

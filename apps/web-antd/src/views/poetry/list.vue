@@ -1,16 +1,30 @@
 <script lang="ts" setup>
-import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { Poetry, PoetryListParams } from '#/api';
 
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { Page, useVbenDrawer, VbenTableAction } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
+import {
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined,
+  ToolOutlined,
+} from '@ant-design/icons-vue';
+import {
+  Button,
+  Col,
+  Input,
+  Row,
+  Select,
+  Space,
+  Table,
+  Tag,
+  message,
+} from 'ant-design-vue';
 
-import { Button, message, Modal } from 'ant-design-vue';
-
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import PageHeader from '#/components/PageHeader.vue';
+import TableAction from '#/components/TableAction.vue';
+import { useTable } from '#/composables/useTable';
 import {
   batchUpdatePoetryStatusApi,
   deletePoetryApi,
@@ -18,90 +32,138 @@ import {
   updatePoetryStatusApi,
 } from '#/api';
 
-import { useColumns, useGridFormSchema } from './data';
-import Form from './modules/form.vue';
-
 const router = useRouter();
 
-const selectedIds = ref<number[]>([]);
-const selectedStatus = ref<'archived' | 'draft' | 'published' | null>(null);
+/** 状态选项 */
+const statusOptions = [
+  { label: '草稿', value: 'draft' },
+  { label: '已发布', value: 'published' },
+  { label: '已归档', value: 'archived' },
+];
 
-const [FormDrawer] = useVbenDrawer({
-  connectedComponent: Form,
-  destroyOnClose: true,
-});
+const statusColors: Record<string, string> = {
+  draft: 'default',
+  published: 'success',
+  archived: 'warning',
+};
 
-const [Grid, gridApi] = useVbenVxeGrid({
-  formOptions: {
-    schema: useGridFormSchema(),
-    submitOnChange: true,
-    showCollapseButton: false,
-  },
-  gridOptions: {
-    columns: useColumns(),
-    height: 'auto',
-    keepSource: true,
-    proxyConfig: {
-      ajax: {
-        query: async ({ page }, formValues) => {
-          const params: PoetryListParams = {
-            page: page.currentPage,
-            pageSize: page.pageSize,
-            ...formValues,
-          };
-          return await getPoetryListApi(params);
-        },
-      },
-    },
-    rowConfig: {
-      keyField: 'id',
-    },
-    checkboxConfig: {
-      reserve: true,
-      highlight: true,
-      range: true,
-      trigger: 'both',
-      checkMethod({ row }: { row: Poetry }) {
-        // 已有选中时，禁用不同状态的行的 checkbox
-        if (selectedStatus.value && selectedStatus.value !== row.status) {
-          return false;
-        }
-        return true;
-      },
-    },
-    toolbarConfig: {
-      custom: false,
-      export: false,
-      refresh: true,
-      search: false,
-      zoom: false,
-    },
-  } as VxeTableGridOptions<Poetry>,
-  gridEvents: {
-    checkboxChange: ({ checked, row }: { checked: boolean; row: Poetry }) =>
-      onCheckboxChange({ checked, row }),
-    checkboxAll: (params: { checked: boolean; rows?: Poetry[] }) => {
-      const rows = params.rows ?? gridApi.grid.getTableData().tableData;
-      onCheckboxAll({ checked: params.checked, rows });
-    },
-  },
-});
+const statusLabels: Record<string, string> = {
+  draft: '草稿',
+  published: '已发布',
+  archived: '已归档',
+};
 
-function confirm(content: string, title: string) {
-  return new Promise((resolve, reject) => {
-    Modal.confirm({
-      content,
-      onCancel() {
-        reject(new Error('已取消'));
-      },
-      onOk() {
-        resolve(true);
-      },
-      title,
-    });
+/** 朝代选项 */
+const dynastyOptions = [
+  { label: '先秦', value: '先秦' },
+  { label: '汉', value: '汉' },
+  { label: '魏晋', value: '魏晋' },
+  { label: '南北朝', value: '南北朝' },
+  { label: '隋', value: '隋' },
+  { label: '唐', value: '唐' },
+  { label: '五代', value: '五代' },
+  { label: '宋', value: '宋' },
+  { label: '元', value: '元' },
+  { label: '明', value: '明' },
+  { label: '清', value: '清' },
+  { label: '近代', value: '近代' },
+  { label: '现代', value: '现代' },
+  { label: '未知', value: '未知' },
+];
+
+/** 搜索筛选 */
+const keyword = ref('');
+const dynasty = ref<string | undefined>(undefined);
+const status = ref<string | undefined>(undefined);
+
+/** 选中行 */
+const selectedRowKeys = ref<number[]>([]);
+const selectedStatus = ref<string | null>(null);
+
+/** 表格数据 */
+const { data, pagination, loading, refresh, setFilters, onTableChange } =
+  useTable<Poetry>({
+    fetchData: async ({ page, pageSize }) => {
+      const params: PoetryListParams = {
+        page,
+        page_size: pageSize,
+        keyword: keyword.value || undefined,
+        dynasty: dynasty.value || undefined,
+        status: status.value || undefined,
+      };
+      return await getPoetryListApi(params);
+    },
+    immediate: true,
   });
+
+/** 搜索 */
+function handleSearch() {
+  setFilters({});
 }
 
+/** 重置筛选 */
+function handleReset() {
+  keyword.value = '';
+  dynasty.value = undefined;
+  status.value = undefined;
+  setFilters({});
+}
+
+/** 选中变化 */
+function onSelectChange(keys: number[]) {
+  selectedRowKeys.value = keys;
+  if (keys.length === 0) {
+    selectedStatus.value = null;
+  } else if (!selectedStatus.value) {
+    const firstRow = data.value.find((r) => r.id === keys[0]);
+    selectedStatus.value = firstRow?.status ?? null;
+  }
+}
+
+/** 行选择配置 */
+const rowSelection = {
+  selectedRowKeys: selectedRowKeys.value,
+  onChange: onSelectChange,
+  getCheckboxProps: (record: Poetry) => ({
+    disabled:
+      selectedStatus.value && selectedStatus.value !== record.status,
+  }),
+} as any;
+
+/** 表格列 */
+const columns = [
+  { title: 'ID', dataIndex: 'id', width: 80, key: 'id' },
+  { title: '标题', dataIndex: 'title', minWidth: 150, key: 'title' },
+  { title: '作者', dataIndex: 'author', width: 100, key: 'author' },
+  { title: '朝代', dataIndex: 'dynasty', width: 80, key: 'dynasty' },
+  {
+    title: '分类',
+    dataIndex: 'category_name',
+    width: 100,
+    key: 'category_name',
+  },
+  {
+    title: '来源',
+    dataIndex: 'source',
+    minWidth: 120,
+    key: 'source',
+  },
+  {
+    title: '状态',
+    dataIndex: 'status',
+    width: 100,
+    key: 'status',
+  },
+  { title: '创建时间', dataIndex: 'created_at', width: 180, key: 'created_at' },
+  {
+    title: '操作',
+    key: 'operation',
+    width: 200,
+    fixed: 'right' as const,
+  },
+];
+
+/** 操作处理 */
 function onCreate() {
   router.push('/poetry/create');
 }
@@ -112,120 +174,62 @@ function onEdit(row: Poetry) {
 
 async function onPublish(row: Poetry) {
   try {
-    await confirm(`确定发布「${row.title}」吗？`, '发布');
     await updatePoetryStatusApi(row.id, 'published');
     message.success('发布成功');
-    onRefresh();
+    refresh();
   } catch {
-    // cancelled
+    // error handled by interceptor
   }
 }
 
 async function onArchive(row: Poetry) {
   try {
-    await confirm(`确定归档「${row.title}」吗？`, '归档');
     await updatePoetryStatusApi(row.id, 'archived');
     message.success('归档成功');
-    onRefresh();
+    refresh();
   } catch {
-    // cancelled
+    // error handled by interceptor
   }
 }
 
 function onDelete(row: Poetry) {
-  const hideLoading = message.loading({
-    content: `正在删除「${row.title}」...`,
-    duration: 0,
-    key: 'action_process_msg',
-  });
   deletePoetryApi(row.id)
     .then(() => {
-      message.success({
-        content: `「${row.title}」已删除`,
-        key: 'action_process_msg',
-      });
-      onRefresh();
+      message.success(`「${row.title}」已删除`);
+      refresh();
     })
-    .catch(() => {
-      hideLoading();
-    });
-}
-
-function onRefresh() {
-  gridApi.query();
-}
-
-function onCheckboxChange({ checked, row }: { checked: boolean; row: Poetry }) {
-  if (checked) {
-    selectedIds.value.push(row.id);
-    if (!selectedStatus.value) {
-      selectedStatus.value = row.status;
-    }
-  } else {
-    selectedIds.value = selectedIds.value.filter((id) => id !== row.id);
-    if (selectedIds.value.length === 0) {
-      selectedStatus.value = null;
-    }
-  }
-}
-
-function onCheckboxAll({
-  checked,
-  rows,
-}: {
-  checked: boolean;
-  rows: Poetry[];
-}) {
-  if (checked) {
-    // 过滤掉禁用的行（不同状态的）
-    const selectableRows = rows.filter(
-      (r) => !selectedStatus.value || selectedStatus.value === r.status,
-    );
-    selectedIds.value = selectableRows.map((r) => r.id);
-    selectedStatus.value = selectableRows[0]?.status ?? null;
-  } else {
-    selectedIds.value = [];
-    selectedStatus.value = null;
-  }
+    .catch(() => {});
 }
 
 async function onBatchPublish() {
-  if (selectedIds.value.length === 0) {
+  if (selectedRowKeys.value.length === 0) {
     message.warning('请先选择要发布的诗歌');
     return;
   }
   try {
-    await confirm(
-      `确定批量发布选中的 ${selectedIds.value.length} 首诗歌吗？`,
-      '批量发布',
-    );
-    await batchUpdatePoetryStatusApi(selectedIds.value, 'published');
+    await batchUpdatePoetryStatusApi(selectedRowKeys.value, 'published');
     message.success('批量发布成功');
-    selectedIds.value = [];
+    selectedRowKeys.value = [];
     selectedStatus.value = null;
-    onRefresh();
+    refresh();
   } catch {
-    // cancelled
+    // error handled by interceptor
   }
 }
 
 async function onBatchArchive() {
-  if (selectedIds.value.length === 0) {
+  if (selectedRowKeys.value.length === 0) {
     message.warning('请先选择要归档的诗歌');
     return;
   }
   try {
-    await confirm(
-      `确定批量归档选中的 ${selectedIds.value.length} 首诗歌吗？`,
-      '批量归档',
-    );
-    await batchUpdatePoetryStatusApi(selectedIds.value, 'archived');
+    await batchUpdatePoetryStatusApi(selectedRowKeys.value, 'archived');
     message.success('批量归档成功');
-    selectedIds.value = [];
+    selectedRowKeys.value = [];
     selectedStatus.value = null;
-    onRefresh();
+    refresh();
   } catch {
-    // cancelled
+    // error handled by interceptor
   }
 }
 
@@ -235,72 +239,144 @@ function onBatchConvert() {
 </script>
 
 <template>
-  <Page auto-content-height>
-    <FormDrawer @success="onRefresh" />
-    <Grid>
-      <template #toolbar-actions>
-        <div class="flex items-center gap-2">
-          <template v-if="selectedIds.length > 0">
+  <div>
+    <PageHeader title="诗歌管理">
+      <template #extra>
+        <Space>
+          <Button @click="onBatchConvert">
+            <ToolOutlined />
+            工具
+          </Button>
+          <Button type="primary" @click="onCreate">
+            <PlusOutlined />
+            录入诗歌
+          </Button>
+        </Space>
+      </template>
+    </PageHeader>
+
+    <!-- 筛选栏 -->
+    <div class="filter-bar">
+      <Row :gutter="16" align="middle">
+        <Col>
+          <Input
+            v-model:value="keyword"
+            placeholder="搜索标题或作者"
+            allow-clear
+            style="width: 200px"
+            @press-enter="handleSearch"
+          />
+        </Col>
+        <Col>
+          <Select
+            v-model:value="dynasty"
+            placeholder="朝代"
+            allow-clear
+            :options="dynastyOptions"
+            style="width: 110px"
+            @change="handleSearch"
+          />
+        </Col>
+        <Col>
+          <Select
+            v-model:value="status"
+            placeholder="状态"
+            allow-clear
+            :options="statusOptions"
+            style="width: 110px"
+            @change="handleSearch"
+          />
+        </Col>
+        <Col>
+          <Space>
+            <Button @click="handleReset">重置</Button>
+            <Button type="primary" @click="handleSearch">搜索</Button>
+          </Space>
+        </Col>
+        <Col v-if="selectedRowKeys.length > 0">
+          <Space>
             <Button
               v-if="selectedStatus === 'draft'"
               type="primary"
               @click="onBatchPublish"
             >
-              批量发布({{ selectedIds.length }})
+              批量发布({{ selectedRowKeys.length }})
             </Button>
             <Button
               v-if="selectedStatus === 'published'"
               @click="onBatchArchive"
             >
-              批量归档({{ selectedIds.length }})
+              批量归档({{ selectedRowKeys.length }})
             </Button>
-          </template>
-        </div>
-      </template>
-      <template #expand-after>
-        <div class="flex items-center gap-2">
-          <Button @click="onBatchConvert">工具</Button>
-          <Button type="primary" @click="onCreate">
-            <Plus class="size-5" />
-            录入诗歌
-          </Button>
-        </div>
-      </template>
-      <template #action="{ row }">
-        <VbenTableAction
-          :actions="[
-            {
-              text: '编辑',
-              icon: 'lucide:edit',
-              onClick: () => onEdit(row),
-            },
-            {
-              text: '发布',
-              icon: 'lucide:upload',
-              ifShow: row.status === 'draft',
-              onClick: () => onPublish(row),
-            },
-            {
-              text: '归档',
-              icon: 'lucide:archive',
-              ifShow: row.status === 'published',
-              onClick: () => onArchive(row),
-            },
-          ]"
-          :dropdown-actions="[
-            {
-              text: '删除',
-              icon: 'lucide:trash-2',
-              danger: true,
-              popConfirm: {
-                title: `确定删除「${row.title}」吗？`,
-                confirm: () => onDelete(row),
+          </Space>
+        </Col>
+      </Row>
+    </div>
+
+    <!-- 表格 -->
+    <Table
+      :columns="columns"
+      :data-source="data"
+      :loading="loading"
+      :pagination="pagination"
+      :row-key="(record: Poetry) => record.id"
+      :row-selection="rowSelection"
+      bordered
+      size="middle"
+      @change="onTableChange"
+    >
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'source'">
+          {{ record.source || '-' }}
+        </template>
+        <template v-else-if="column.key === 'status'">
+          <Tag :color="statusColors[record.status]">
+            {{ statusLabels[record.status] || record.status }}
+          </Tag>
+        </template>
+        <template v-else-if="column.key === 'operation'">
+          <TableAction
+            :actions="[
+              {
+                text: '编辑',
+                icon: EditOutlined,
+                onClick: () => onEdit(record as Poetry),
               },
-            },
-          ]"
-          align="center"
-        />
+              {
+                text: '发布',
+                ifShow: record.status === 'draft',
+                onClick: () => onPublish(record as Poetry),
+              },
+              {
+                text: '归档',
+                ifShow: record.status === 'published',
+                onClick: () => onArchive(record as Poetry),
+              },
+            ]"
+            :dropdown-actions="[
+              {
+                text: '删除',
+                icon: DeleteOutlined,
+                danger: true,
+                popConfirm: {
+                  title: `确定删除「${record.title}」吗？`,
+                  confirm: () => onDelete(record as Poetry),
+                },
+              },
+            ]"
+            align="center"
+          />
+        </template>
       </template>
-    </Grid>
-  </Page>
+    </Table>
+  </div>
 </template>
+
+<style scoped>
+.filter-bar {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+}
+</style>

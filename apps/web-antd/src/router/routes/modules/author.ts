@@ -19,6 +19,24 @@ const routes: RouteRecordRaw[] = [
           title: '作者列表',
         },
       },
+      {
+        name: 'AuthorCreate',
+        path: 'create',
+        component: () => import('#/views/author/create.vue'),
+        meta: {
+          hideInMenu: true,
+          title: '添加作者',
+        },
+      },
+      {
+        name: 'AuthorEdit',
+        path: ':id/edit',
+        component: () => import('#/views/author/edit.vue'),
+        meta: {
+          hideInMenu: true,
+          title: '编辑作者',
+        },
+      },
     ],
   },
 ];

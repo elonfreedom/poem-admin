@@ -92,8 +92,8 @@ done
 cd "$PROJECT_ROOT"
 
 # Step 1: 构建前端产物
-echo ">>> Step 1/6: 构建前端产物 (pnpm build:antd)"
-pnpm build:antd
+echo ">>> Step 1/6: 构建前端产物 (pnpm build)"
+pnpm build
 log_ok "前端构建完成"
 
 # Step 2: 构建 Docker 镜像

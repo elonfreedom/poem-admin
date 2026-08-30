@@ -1,5 +1,7 @@
-import type { VbenFormSchema } from '#/adapter/form';
-import type { VxeTableGridColumns } from '#/adapter/vxe-table';
+/**
+ * 作者模块共享数据 & 列定义
+ * 已迁移为原生 a-table 列配置（不再依赖 VbenFormSchema / VxeTableGridColumns）
+ */
 
 const dynastyOptions = [
   { label: '先秦', value: '先秦' },
@@ -20,110 +22,33 @@ const dynastyOptions = [
 
 export { dynastyOptions };
 
-export function useGridFormSchema(): VbenFormSchema[] {
-  return [
-    {
-      component: 'Input',
-      fieldName: 'keyword',
-      label: '搜索',
-      componentProps: {
-        allowClear: true,
-        placeholder: '搜索姓名或朝代',
-        class: 'w-48',
-      },
-    },
-  ];
-}
-
-export function useColumns(): VxeTableGridColumns {
-  return [
-    {
-      field: 'id',
-      title: 'ID',
-      width: 80,
-    },
-    {
-      field: 'name',
-      title: '姓名',
-      width: 120,
-    },
-    {
-      field: 'name_traditional',
-      title: '繁体',
-      width: 120,
-      formatter({ row }: { row: { name_traditional?: string } }) {
-        return row.name_traditional || '-';
-      },
-    },
-    {
-      field: 'dynasty',
-      title: '朝代',
-      width: 100,
-    },
-    {
-      field: 'biography',
-      title: '简介',
-      minWidth: 200,
-      formatter({ row }: { row: { biography?: string } }) {
-        return row.biography || '-';
-      },
-    },
-    {
-      field: 'created_at',
-      title: '创建时间',
-      width: 180,
-    },
-    {
-      align: 'center',
-      field: 'operation',
-      fixed: 'right',
-      slots: { default: 'action' },
-      title: '操作',
-      width: 150,
-    },
-  ];
-}
-
-export function useAuthorFormSchema(): VbenFormSchema[] {
-  return [
-    {
-      component: 'Input',
-      fieldName: 'name',
-      label: '姓名',
-      rules: 'required',
-      componentProps: {
-        placeholder: '请输入作者姓名（简体）',
-      },
-    },
-    {
-      component: 'Input',
-      fieldName: 'name_traditional',
-      label: '繁体姓名',
-      componentProps: {
-        placeholder: '繁体姓名（如与简体相同可留空）',
-      },
-    },
-    {
-      component: 'AutoComplete',
-      fieldName: 'dynasty',
-      label: '朝代',
-      rules: 'required',
-      componentProps: {
-        placeholder: '选择或输入朝代',
-        options: dynastyOptions,
-        filterOption: (input: string, option: { value: string }) => {
-          return option.value.includes(input);
-        },
-      },
-    },
-    {
-      component: 'Textarea',
-      fieldName: 'biography',
-      label: '简介',
-      componentProps: {
-        rows: 4,
-        placeholder: '作者简介（可选）',
-      },
-    },
-  ];
-}
+/** 作者表格列定义 */
+export const authorColumns = [
+  { title: 'ID', dataIndex: 'id', width: 80, key: 'id' },
+  { title: '姓名', dataIndex: 'name', width: 120, key: 'name' },
+  {
+    title: '繁体',
+    dataIndex: 'name_traditional',
+    width: 120,
+    key: 'name_traditional',
+  },
+  { title: '朝代', dataIndex: 'dynasty', width: 100, key: 'dynasty' },
+  {
+    title: '简介',
+    dataIndex: 'biography',
+    minWidth: 200,
+    key: 'biography',
+  },
+  {
+    title: '创建时间',
+    dataIndex: 'created_at',
+    width: 180,
+    key: 'created_at',
+  },
+  {
+    title: '操作',
+    key: 'operation',
+    width: 150,
+    fixed: 'right' as const,
+  },
+];

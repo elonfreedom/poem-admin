@@ -1,9 +1,10 @@
 import type { Router } from 'vue-router';
 
-import { LOGIN_PATH } from '@vben/constants';
-import { preferences } from '@vben/preferences';
-import { useAccessStore, useUserStore } from '@vben/stores';
-import { startProgress, stopProgress } from '@vben/utils';
+import { LOGIN_PATH } from '#/constants';
+import { useAccessStore } from '#/stores/access';
+import { preferences } from '#/stores/preferences';
+import { useUserStore } from '#/stores/user';
+import { startProgress, stopProgress } from '#/lib/utils';
 
 import { accessRoutes, coreRouteNames } from '#/router/routes';
 import { useAuthStore } from '#/store';

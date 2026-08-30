@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import { useRouter } from 'vue-router';
 
-import { Page, VbenButton } from '@vben/common-ui';
+import { ArrowLeftOutlined } from '@ant-design/icons-vue';
+import { Button, Card, Modal, message } from 'ant-design-vue';
 
-import { message, Modal } from 'ant-design-vue';
-
+import PageHeader from '#/components/PageHeader.vue';
 import {
   batchConvertSimplifiedApi,
   batchMatchAuthorsApi,
@@ -96,63 +96,62 @@ async function onBatchConvert() {
     // cancelled
   }
 }
+
+const tools = [
+  {
+    icon: '📚',
+    title: '从诗歌提取作者',
+    description:
+      '扫描所有诗歌，提取不重复的作者名自动创建到作者库，跳过已存在的作者。',
+    onClick: onGenerateAuthors,
+    buttonText: '开始提取',
+  },
+  {
+    icon: '🔗',
+    title: '批量关联作者',
+    description:
+      '尝试将诗歌的作者名与作者库匹配，自动建立关联（设置 author_id）。',
+    onClick: onBatchMatch,
+    buttonText: '开始匹配',
+  },
+  {
+    icon: '简',
+    title: '批量生成简体',
+    description:
+      '为所有存量诗歌自动生成简体文本（title_sc、author_sc、content_sc）。',
+    onClick: onBatchConvert,
+    buttonText: '开始生成',
+  },
+];
 </script>
 
 <template>
-  <Page title="工具">
-    <template #extra>
-      <VbenButton @click="router.push('/poetry/list')">
-        返回诗歌列表
-      </VbenButton>
-    </template>
+  <div>
+    <PageHeader title="工具">
+      <template #extra>
+        <Button @click="router.push('/poetry/list')">
+          <ArrowLeftOutlined />
+          返回诗歌列表
+        </Button>
+      </template>
+    </PageHeader>
 
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      <!-- 提取作者 -->
-      <div class="card-box p-5">
+      <Card v-for="tool in tools" :key="tool.title" :bordered="false">
         <div class="mb-1 flex items-center gap-2">
-          <span class="text-lg">📚</span>
-          <h3 class="text-base font-medium">从诗歌提取作者</h3>
+          <span class="text-lg">{{ tool.icon }}</span>
+          <h3 class="text-base font-medium">{{ tool.title }}</h3>
         </div>
-        <p class="mb-4 text-sm text-muted-foreground">
-          扫描所有诗歌，提取不重复的作者名自动创建到作者库，跳过已存在的作者。
-        </p>
-        <VbenButton type="primary" @click="onGenerateAuthors">
-          开始提取
-        </VbenButton>
-      </div>
-
-      <!-- 批量关联 -->
-      <div class="card-box p-5">
-        <div class="mb-1 flex items-center gap-2">
-          <span class="text-lg">🔗</span>
-          <h3 class="text-base font-medium">批量关联作者</h3>
-        </div>
-        <p class="mb-4 text-sm text-muted-foreground">
-          尝试将诗歌的作者名与作者库匹配，自动建立关联（设置 author_id）。
-        </p>
-        <VbenButton type="primary" @click="onBatchMatch">
-          开始匹配
-        </VbenButton>
-      </div>
-
-      <!-- 批量生成简体 -->
-      <div class="card-box p-5">
-        <div class="mb-1 flex items-center gap-2">
-          <span class="text-lg">简</span>
-          <h3 class="text-base font-medium">批量生成简体</h3>
-        </div>
-        <p class="mb-4 text-sm text-muted-foreground">
-          为所有存量诗歌自动生成简体文本（title_sc、author_sc、content_sc）。
-        </p>
-        <VbenButton type="primary" @click="onBatchConvert">
-          开始生成
-        </VbenButton>
-      </div>
+        <p class="mb-4 text-sm text-gray-500">{{ tool.description }}</p>
+        <Button type="primary" @click="tool.onClick">
+          {{ tool.buttonText }}
+        </Button>
+      </Card>
     </div>
 
     <!-- 使用说明 -->
-    <div class="card-box mt-6 p-5">
-      <h3 class="mb-3 text-sm font-medium text-muted-foreground">推荐操作流程</h3>
+    <Card :bordered="false" class="mt-6">
+      <h3 class="mb-3 text-sm font-medium text-gray-500">推荐操作流程</h3>
       <ol class="list-inside list-decimal space-y-2 text-sm">
         <li>
           <strong>提取作者</strong>：从现有诗歌中提取不重复的作者名，自动创建到作者库
@@ -164,6 +163,6 @@ async function onBatchConvert() {
           <strong>批量生成简体</strong>：为所有诗歌生成简体文本（可选）
         </li>
       </ol>
-    </div>
-  </Page>
+    </Card>
+  </div>
 </template>

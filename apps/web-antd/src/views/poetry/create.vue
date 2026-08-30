@@ -1,26 +1,36 @@
 <script lang="ts" setup>
-import type { VbenFormSchema } from '#/adapter/form';
 import type { CreatePoetryParams } from '#/api';
 
 import { ref, useTemplateRef } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { Page, VbenButton } from '@vben/common-ui';
-
-import { Select, message } from 'ant-design-vue';
-
 import {
-  createPoetryApi,
-  getAuthorOptionsApi,
-  useVbenForm,
-} from '#/api';
+  ArrowLeftOutlined,
+  SaveOutlined,
+  UploadOutlined,
+} from '@ant-design/icons-vue';
+import {
+  Button,
+  Card,
+  Form,
+  FormItem,
+  Input,
+  InputNumber,
+  Select,
+  Space,
+  message,
+} from 'ant-design-vue';
+
+import PageHeader from '#/components/PageHeader.vue';
 import InputWithPinyin from '#/components/InputWithPinyin.vue';
+import { createPoetryApi, getAuthorOptionsApi } from '#/api';
 import type { AuthorOption } from '#/api/core/author';
 
 const router = useRouter();
 
 // ========== 单个录入 ==========
 const submitting = ref(false);
+const formRef = ref();
 
 // 拼音组件的 ref
 const titlePinyinRef = useTemplateRef('titlePinyin');
@@ -36,105 +46,25 @@ const authorLoading = ref(false);
 const selectedAuthorId = ref<number | undefined>(undefined);
 const authorText = ref('');
 
-const formSchema: VbenFormSchema[] = [
-  {
-    fieldName: 'title',
-    component: InputWithPinyin,
-    label: '标题',
-    rules: 'required',
-    componentProps: {
-      type: 'input',
-      placeholder: '请输入标题',
-    },
-  },
-  {
-    fieldName: 'author',
-    component: 'Input',
-    label: '作者',
-    rules: 'required',
-    componentProps: {
-      style: { display: 'none' },
-    },
-  },
-  {
-    fieldName: 'dynasty',
-    component: 'Input',
-    label: '朝代',
-  },
-  {
-    fieldName: 'category_id',
-    component: 'InputNumber',
-    label: '分类ID',
-    componentProps: {
-      style: { width: '100%' },
-      min: 1,
-    },
-  },
-  {
-    fieldName: 'content',
-    component: InputWithPinyin,
-    label: '内容',
-    rules: 'required',
-    componentProps: {
-      type: 'textarea',
-      rows: 4,
-      placeholder: '请输入内容',
-    },
-  },
-  {
-    fieldName: 'translation',
-    component: 'Textarea',
-    label: '翻译',
-    componentProps: {
-      rows: 4,
-    },
-  },
-  {
-    fieldName: 'appreciation',
-    component: 'Textarea',
-    label: '赏析',
-    componentProps: {
-      rows: 4,
-    },
-  },
-  {
-    fieldName: 'cover_url',
-    component: 'Input',
-    label: '封面图URL',
-  },
-  {
-    fieldName: 'source',
-    component: 'Input',
-    label: '来源',
-    componentProps: {
-      placeholder: '如《唐诗三百首》《宋词三百首》',
-    },
-  },
-  {
-    fieldName: 'status',
-    component: 'Select',
-    label: '状态',
-    defaultValue: 'draft',
-    componentProps: {
-      options: [
-        { label: '草稿', value: 'draft' },
-        { label: '发布', value: 'published' },
-      ],
-    },
-  },
-];
-
-const [Form, formApi] = useVbenForm({
-  schema: formSchema,
-  wrapperClass: 'grid-cols-1',
-  commonConfig: {
-    formItemClass: 'mb-4',
-    labelClass: 'font-medium',
-  },
-  handleSubmit() {
-    handleSingleSubmit();
-  },
+// 表单数据
+const formData = ref({
+  title: '',
+  author: '',
+  dynasty: '',
+  category_id: undefined as number | undefined,
+  content: '',
+  translation: '',
+  appreciation: '',
+  cover_url: '',
+  source: '',
+  status: 'draft',
 });
+
+// 状态选项
+const statusOptions = [
+  { label: '草稿', value: 'draft' },
+  { label: '发布', value: 'published' },
+];
 
 // 搜索作者
 async function handleAuthorSearch(keyword: string) {
@@ -152,13 +82,14 @@ async function handleAuthorSearch(keyword: string) {
 }
 
 // 选择作者
-function handleAuthorSelect(value: number | undefined) {
-  selectedAuthorId.value = value;
+function handleAuthorSelect(value: any) {
+  selectedAuthorId.value = value as number | undefined;
   if (value) {
     const author = authorOptions.value.find((a) => a.id === value);
     if (author) {
       authorText.value = author.name;
-      formApi.setValues({ author: author.name, dynasty: author.dynasty });
+      formData.value.author = author.name;
+      formData.value.dynasty = author.dynasty;
     }
   }
 }
@@ -166,8 +97,7 @@ function handleAuthorSelect(value: number | undefined) {
 // 作者文本变化
 function handleAuthorTextChange(value: string) {
   authorText.value = value;
-  formApi.setValues({ author: value });
-  // 如果手动修改了文本，清除已选 author_id
+  formData.value.author = value;
   if (value && selectedAuthorId.value) {
     const author = authorOptions.value.find(
       (a) => a.id === selectedAuthorId.value,
@@ -178,17 +108,16 @@ function handleAuthorTextChange(value: string) {
   }
 }
 
-async function handleSingleSubmit() {
+async function handleSubmit() {
   try {
-    await formApi.validate();
+    await formRef.value.validate();
     if (!authorText.value?.trim()) {
       message.warning('请输入作者');
       return;
     }
-    const values = (await formApi.getValues()) as CreatePoetryParams;
     submitting.value = true;
     await createPoetryApi({
-      ...values,
+      ...formData.value,
       author: authorText.value,
       author_id: selectedAuthorId.value,
       title_pinyin: titlePinyinRef.value?.getPinyinString() || '',
@@ -196,7 +125,8 @@ async function handleSingleSubmit() {
       title_sc: titlePinyinRef.value?.getSimplifiedString() || titleSc.value,
       content_sc:
         contentPinyinRef.value?.getSimplifiedString() || contentSc.value,
-    });
+    } as CreatePoetryParams);
+    message.success('诗歌创建成功');
     router.push('/poetry/list');
   } catch {
     // validation errors handled by form
@@ -207,29 +137,44 @@ async function handleSingleSubmit() {
 </script>
 
 <template>
-  <Page title="诗歌录入">
-    <template #extra>
-      <div class="flex gap-2">
-        <VbenButton @click="router.push('/poetry/batch')">批量导入</VbenButton>
-        <VbenButton @click="router.push('/poetry/list')">返回列表</VbenButton>
-      </div>
-    </template>
-
-    <Form>
-      <template #title="{ modelValue, 'onUpdate:modelValue': onUpdate }">
-        <InputWithPinyin
-          ref="titlePinyin"
-          :model-value="modelValue"
-          :simplified-value="titleSc"
-          type="input"
-          placeholder="请输入标题"
-          show-convert
-          @update:model-value="onUpdate"
-          @update:simplified-value="titleSc = $event"
-        />
+  <div>
+    <PageHeader title="诗歌录入">
+      <template #extra>
+        <Space>
+          <Button @click="router.push('/poetry/batch')">
+            <UploadOutlined />
+            批量导入
+          </Button>
+          <Button @click="router.push('/poetry/list')">
+            <ArrowLeftOutlined />
+            返回列表
+          </Button>
+        </Space>
       </template>
-      <template #author>
-        <div>
+    </PageHeader>
+
+    <Card>
+      <Form
+        ref="formRef"
+        :model="formData"
+        layout="vertical"
+        @finish="handleSubmit"
+      >
+        <!-- 标题（带拼音） -->
+        <FormItem label="标题" name="title" required>
+          <InputWithPinyin
+            ref="titlePinyin"
+            v-model:value="formData.title"
+            :simplified-value="titleSc"
+            type="input"
+            placeholder="请输入标题"
+            show-convert
+            @update:simplified-value="titleSc = $event"
+          />
+        </FormItem>
+
+        <!-- 作者（搜索选择 + 手动输入） -->
+        <FormItem label="作者" name="author" required>
           <Select
             :value="selectedAuthorId"
             :options="
@@ -243,35 +188,96 @@ async function handleSingleSubmit() {
             show-search
             :filter-option="false"
             placeholder="搜索或选择作者"
-            style="width: 100%"
             @search="handleAuthorSearch"
-            @select="handleAuthorSelect"
+            @update:value="handleAuthorSelect"
             @clear="selectedAuthorId = undefined"
           />
-          <input
+          <Input
             :value="authorText"
-            type="text"
             placeholder="手动输入作者姓名"
-            class="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            class="mt-2"
             @input="
               handleAuthorTextChange(($event.target as HTMLInputElement).value)
             "
           />
-        </div>
-      </template>
-      <template #content="{ modelValue, 'onUpdate:modelValue': onUpdate }">
-        <InputWithPinyin
-          ref="contentPinyin"
-          :model-value="modelValue"
-          :simplified-value="contentSc"
-          type="textarea"
-          :rows="4"
-          placeholder="请输入内容"
-          show-convert
-          @update:model-value="onUpdate"
-          @update:simplified-value="contentSc = $event"
-        />
-      </template>
-    </Form>
-  </Page>
+        </FormItem>
+
+        <!-- 朝代 -->
+        <FormItem label="朝代" name="dynasty">
+          <Input v-model:value="formData.dynasty" placeholder="自动填充或手动输入" />
+        </FormItem>
+
+        <!-- 分类ID -->
+        <FormItem label="分类ID" name="category_id">
+          <InputNumber
+            v-model:value="formData.category_id"
+            :min="1"
+            style="width: 100%"
+            placeholder="请输入分类ID"
+          />
+        </FormItem>
+
+        <!-- 内容（带拼音） -->
+        <FormItem label="内容" name="content" required>
+          <InputWithPinyin
+            ref="contentPinyin"
+            v-model:value="formData.content"
+            :simplified-value="contentSc"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入内容"
+            show-convert
+            @update:simplified-value="contentSc = $event"
+          />
+        </FormItem>
+
+        <!-- 翻译 -->
+        <FormItem label="翻译" name="translation">
+          <Input.TextArea
+            v-model:value="formData.translation"
+            :rows="4"
+            placeholder="请输入翻译（可选）"
+          />
+        </FormItem>
+
+        <!-- 赏析 -->
+        <FormItem label="赏析" name="appreciation">
+          <Input.TextArea
+            v-model:value="formData.appreciation"
+            :rows="4"
+            placeholder="请输入赏析（可选）"
+          />
+        </FormItem>
+
+        <!-- 封面图URL -->
+        <FormItem label="封面图URL" name="cover_url">
+          <Input v-model:value="formData.cover_url" placeholder="请输入封面图URL" />
+        </FormItem>
+
+        <!-- 来源 -->
+        <FormItem label="来源" name="source">
+          <Input
+            v-model:value="formData.source"
+            placeholder="如《唐诗三百首》《宋词三百首》"
+          />
+        </FormItem>
+
+        <!-- 状态 -->
+        <FormItem label="状态" name="status">
+          <Select v-model:value="formData.status" :options="statusOptions" />
+        </FormItem>
+
+        <!-- 提交按钮 -->
+        <FormItem>
+          <Space>
+            <Button type="primary" :loading="submitting" html-type="submit">
+              <SaveOutlined />
+              保存
+            </Button>
+            <Button @click="router.push('/poetry/list')">取消</Button>
+          </Space>
+        </FormItem>
+      </Form>
+    </Card>
+  </div>
 </template>

@@ -1,7 +1,7 @@
 <script lang="ts" setup name="InputWithPinyin">
 import { computed, ref, watch } from 'vue';
 
-import { getToneOptions, removeTone } from '@vben/utils';
+import { getToneOptions, removeTone } from '#/lib/pinyin';
 
 interface Props {
   modelValue?: string;

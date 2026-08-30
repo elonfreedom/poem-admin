@@ -1,24 +1,13 @@
 {
-  "name": "@vben/web-antd",
-  "version": "5.7.0",
-  "homepage": "https://vben.pro",
-  "bugs": "https://github.com/vbenjs/vue-vben-admin/issues",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/vbenjs/vue-vben-admin.git",
-    "directory": "apps/web-antd"
-  },
-  "license": "MIT",
-  "author": {
-    "name": "vben",
-    "email": "ann.vben@gmail.com",
-    "url": "https://github.com/anncwb"
-  },
+  "name": "poem-admin",
+  "version": "1.0.0",
+  "description": "晓诗诗词管理后台 - 基于 Vue 3 + Ant Design Vue",
+  "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm vite build --mode production",
-    "build:analyze": "pnpm vite build --mode analyze",
-    "dev": "pnpm vite --mode development",
+    "build": "vite build --mode production",
+    "build:analyze": "vite build --mode analyze",
+    "dev": "vite --mode development",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit --skipLibCheck"
   },
@@ -26,25 +15,26 @@
     "#/*": "./src/*"
   },
   "dependencies": {
-    "@vben/access": "workspace:*",
-    "@vben/common-ui": "workspace:*",
-    "@vben/constants": "workspace:*",
-    "@vben/hooks": "workspace:*",
-    "@vben/icons": "workspace:*",
-    "@vben/layouts": "workspace:*",
-    "@vben/locales": "workspace:*",
-    "@vben/plugins": "workspace:*",
-    "@vben/preferences": "workspace:*",
-    "@vben/request": "workspace:*",
-    "@vben/stores": "workspace:*",
-    "@vben/styles": "workspace:*",
-    "@vben/types": "workspace:*",
-    "@vben/utils": "workspace:*",
+    "@ant-design/icons-vue": "catalog:",
     "@vueuse/core": "catalog:",
     "ant-design-vue": "catalog:",
+    "axios": "catalog:",
     "dayjs": "catalog:",
+    "lodash-es": "catalog:",
+    "lucide-vue-next": "catalog:",
+    "nprogress": "catalog:",
     "pinia": "catalog:",
     "vue": "catalog:",
+    "vue-i18n": "catalog:",
     "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@types/lodash-es": "catalog:",
+    "@types/nprogress": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vitejs/plugin-vue-jsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vue-tsc": "catalog:"
   }
 }

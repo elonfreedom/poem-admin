@@ -1,20 +1,17 @@
-# 晓诗管理后台前端 - Docker 镜像
-# 基于 Nginx Alpine 提供静态资源服务
-
 FROM nginx:1.27-alpine
 
-# 移除默认配置
-RUN rm /etc/nginx/conf.d/default.conf
-
-# 自定义 Nginx 配置（支持 SPA 路由回退）
-COPY nginx.conf /etc/nginx/conf.d/poem-admin.conf
+# 删除默认配置（避免 server block 冲突导致 SPA 回退失效）
+RUN rm -f /etc/nginx/conf.d/default.conf
 
 # 复制构建产物
 COPY dist /usr/share/nginx/html
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
+# 复制 nginx 配置
+COPY nginx.conf /etc/nginx/conf.d/poem-admin.conf
+
+# 健康检查（使用 127.0.0.1 避免 IPv6 localhost 连接失败）
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1
 
 EXPOSE 80
 

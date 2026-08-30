@@ -1,67 +1,64 @@
 <script lang="ts" setup>
-import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { Author, AuthorListParams } from '#/api';
 
-import { ref, useTemplateRef } from 'vue';
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { Page, VbenTableAction } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons-vue';
+import {
+  Button,
+  Col,
+  Input,
+  Modal,
+  Row,
+  Space,
+  Table,
+  message,
+} from 'ant-design-vue';
 
-import { Button, message, Modal } from 'ant-design-vue';
-
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import PageHeader from '#/components/PageHeader.vue';
+import TableAction from '#/components/TableAction.vue';
+import { useTable } from '#/composables/useTable';
 import { deleteAuthorApi, getAuthorListApi } from '#/api';
 
-import { useColumns, useGridFormSchema } from './data';
-import Form from './modules/form.vue';
+import { authorColumns } from './data';
 
-const formRef = useTemplateRef('formRef');
+const router = useRouter();
 
-const [Grid, gridApi] = useVbenVxeGrid({
-  formOptions: {
-    schema: useGridFormSchema(),
-    submitOnChange: true,
-    showCollapseButton: false,
-  },
-  gridOptions: {
-    columns: useColumns(),
-    height: 'auto',
-    keepSource: true,
-    proxyConfig: {
-      ajax: {
-        query: async ({ page }, formValues) => {
-          const params: AuthorListParams = {
-            page: page.currentPage,
-            page_size: page.pageSize,
-            ...formValues,
-          };
-          return await getAuthorListApi(params);
-        },
-      },
-    },
-    rowConfig: {
-      keyField: 'id',
-    },
-    toolbarConfig: {
-      custom: false,
-      export: false,
-      refresh: true,
-      search: false,
-      zoom: false,
-    },
-  } as VxeTableGridOptions<Author>,
-});
+/** 搜索筛选 */
+const keyword = ref('');
 
-function onRefresh() {
-  gridApi.query();
+/** 表格数据 */
+const { data, pagination, loading, refresh, setFilters, onTableChange } =
+  useTable<Author>({
+    fetchData: async ({ page, pageSize }) => {
+      const params: AuthorListParams = {
+        page,
+        page_size: pageSize,
+        keyword: keyword.value || undefined,
+      };
+      return await getAuthorListApi(params);
+    },
+    immediate: true,
+  });
+
+/** 搜索 */
+function handleSearch() {
+  setFilters({});
+}
+
+/** 重置筛选 */
+function handleReset() {
+  keyword.value = '';
+  setFilters({});
 }
 
 function onCreate() {
-  formRef.value?.openCreate();
+  router.push('/author/create');
 }
 
 function onEdit(row: Author) {
-  formRef.value?.loadAuthor(row.id);
+  router.push(`/author/${row.id}/edit`);
 }
 
 function onDelete(row: Author) {
@@ -83,7 +80,7 @@ function onDelete(row: Author) {
             content: `「${row.name}」已删除`,
             key: 'delete_msg',
           });
-          onRefresh();
+          refresh();
         })
         .catch(() => {
           hideLoading();
@@ -94,40 +91,88 @@ function onDelete(row: Author) {
 </script>
 
 <template>
-  <Page auto-content-height>
-    <Form ref="formRef" @success="onRefresh" />
-    <Grid>
-      <template #toolbar-actions>
-        <div class="flex items-center gap-2">
-          <Button type="primary" @click="onCreate">
-            <Plus class="size-5" />
-            添加作者
-          </Button>
-        </div>
+  <div>
+    <PageHeader title="作者管理">
+      <template #extra>
+        <Button type="primary" @click="onCreate">
+          <PlusOutlined />
+          添加作者
+        </Button>
       </template>
-      <template #action="{ row }">
-        <VbenTableAction
-          :actions="[
-            {
-              text: '编辑',
-              icon: 'lucide:edit',
-              onClick: () => onEdit(row),
-            },
-          ]"
-          :dropdown-actions="[
-            {
-              text: '删除',
-              icon: 'lucide:trash-2',
-              danger: true,
-              popConfirm: {
-                title: `确定删除「${row.name}」吗？`,
-                confirm: () => onDelete(row),
+    </PageHeader>
+
+    <!-- 筛选栏 -->
+    <div class="filter-bar">
+      <Row :gutter="16" align="middle">
+        <Col>
+          <Input
+            v-model:value="keyword"
+            placeholder="搜索姓名或朝代"
+            allow-clear
+            style="width: 200px"
+            @press-enter="handleSearch"
+          />
+        </Col>
+        <Col>
+          <Space>
+            <Button @click="handleReset">重置</Button>
+            <Button type="primary" @click="handleSearch">搜索</Button>
+          </Space>
+        </Col>
+      </Row>
+    </div>
+
+    <!-- 表格 -->
+    <Table
+      :columns="authorColumns"
+      :data-source="data"
+      :loading="loading"
+      :pagination="pagination"
+      :row-key="(record: Author) => record.id"
+      bordered
+      size="middle"
+      @change="onTableChange"
+    >
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'name_traditional'">
+          {{ record.name_traditional || '-' }}
+        </template>
+        <template v-else-if="column.key === 'biography'">
+          {{ record.biography || '-' }}
+        </template>
+        <template v-else-if="column.key === 'operation'">
+          <TableAction
+            :actions="[
+              {
+                text: '编辑',
+                icon: EditOutlined,
+                onClick: () => onEdit(record as Author),
               },
-            },
-          ]"
-          align="center"
-        />
+            ]"
+            :dropdown-actions="[
+              {
+                text: '删除',
+                icon: DeleteOutlined,
+                danger: true,
+                popConfirm: {
+                  title: `确定删除「${record.name}」吗？`,
+                  confirm: () => onDelete(record as Author),
+                },
+              },
+            ]"
+            align="center"
+          />
+        </template>
       </template>
-    </Grid>
-  </Page>
+    </Table>
+  </div>
 </template>
+
+<style scoped>
+.filter-bar {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+}
+</style>

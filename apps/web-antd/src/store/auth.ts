@@ -1,11 +1,14 @@
-import type { Recordable, UserInfo } from '@vben/types';
+import type { Recordable } from '#/types';
+import type { UserInfo } from '#/types';
 
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { LOGIN_PATH } from '@vben/constants';
-import { preferences } from '@vben/preferences';
-import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
+import { type AccessCode, LOGIN_PATH } from '#/constants';
+import { preferences } from '#/stores/preferences';
+import { resetAllStores } from '#/lib/stores';
+import { useAccessStore } from '#/stores/access';
+import { useUserStore } from '#/stores/user';
 
 import { notification } from 'ant-design-vue';
 import { defineStore } from 'pinia';
@@ -48,7 +51,7 @@ export const useAuthStore = defineStore('auth', () => {
         userInfo = fetchUserInfoResult;
 
         userStore.setUserInfo(userInfo);
-        accessStore.setAccessCodes(accessCodes);
+        accessStore.setAccessCodes(accessCodes as AccessCode[]);
 
         if (accessStore.loginExpired) {
           accessStore.setLoginExpired(false);

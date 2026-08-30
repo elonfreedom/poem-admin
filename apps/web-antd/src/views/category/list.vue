@@ -1,89 +1,105 @@
 <script lang="ts" setup>
-import type { VbenFormSchema } from '#/adapter/form';
 import type { Category } from '#/api';
 
 import { ref } from 'vue';
 
-import { Page, VbenButton } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons-vue';
+import {
+  Button,
+  Card,
+  Form,
+  FormItem,
+  Input,
+  InputNumber,
+  Modal,
+  Popconfirm,
+  Space,
+  Table,
+  message,
+} from 'ant-design-vue';
 
+import PageHeader from '#/components/PageHeader.vue';
 import {
   createCategoryApi,
   deleteCategoryApi,
   getCategoryListApi,
   updateCategoryApi,
-  useVbenForm,
 } from '#/api';
 
 const categoryList = ref<Category[]>([]);
 const editingId = ref<null | number>(null);
-const showForm = ref(false);
+const modalVisible = ref(false);
+const submitting = ref(false);
+const formRef = ref();
 
-// 表单 Schema
-const formSchema: VbenFormSchema[] = [
+// 表单数据
+const formData = ref({
+  name: '',
+  sort: 0,
+});
+
+// 表格列
+const columns = [
+  { title: 'ID', dataIndex: 'id', width: 80, key: 'id' },
+  { title: '分类名称', dataIndex: 'name', key: 'name' },
+  { title: '排序', dataIndex: 'sort', width: 100, key: 'sort' },
+  { title: '诗歌数', dataIndex: 'poem_count', width: 100, key: 'poem_count' },
   {
-    fieldName: 'name',
-    component: 'Input',
-    label: '分类名称',
-    rules: 'required',
-    componentProps: {
-      placeholder: '请输入分类名称',
-    },
-  },
-  {
-    fieldName: 'sort',
-    component: 'InputNumber',
-    label: '排序值',
-    defaultValue: 0,
-    componentProps: {
-      min: 0,
-      style: { width: '100%' },
-    },
+    title: '操作',
+    key: 'operation',
+    width: 150,
+    fixed: 'right' as const,
   },
 ];
 
-const [CategoryForm, formApi] = useVbenForm({
-  schema: formSchema,
-  wrapperClass: 'grid-cols-1',
-  commonConfig: {
-    formItemClass: 'mb-4',
-  },
-  // 不显示表单默认的提交/重置按钮
-  showDefaultActions: false,
-});
-
 async function fetchList() {
-  categoryList.value = await getCategoryListApi();
+  try {
+    categoryList.value = await getCategoryListApi();
+  } catch {
+    // error handled by interceptor
+  }
 }
 
 function handleAdd() {
   editingId.value = null;
-  formApi.setValues({ name: '', sort: 0 });
-  showForm.value = true;
+  formData.value = { name: '', sort: 0 };
+  modalVisible.value = true;
 }
 
 function handleEdit(category: Category) {
   editingId.value = category.id;
-  formApi.setValues({ name: category.name, sort: category.sort });
-  showForm.value = true;
+  formData.value = { name: category.name, sort: category.sort };
+  modalVisible.value = true;
 }
 
 async function handleSubmit() {
   try {
-    const values = await formApi.getValues();
-    editingId.value
-      ? await updateCategoryApi(editingId.value, values)
-      : await createCategoryApi(values);
-    showForm.value = false;
+    await formRef.value.validate();
+    submitting.value = true;
+    if (editingId.value) {
+      await updateCategoryApi(editingId.value, formData.value);
+      message.success('分类更新成功');
+    } else {
+      await createCategoryApi(formData.value);
+      message.success('分类创建成功');
+    }
+    modalVisible.value = false;
     await fetchList();
   } catch {
     // validation errors handled by form
+  } finally {
+    submitting.value = false;
   }
 }
 
 async function handleDelete(id: number) {
-  await deleteCategoryApi(id);
-  await fetchList();
+  try {
+    await deleteCategoryApi(id);
+    message.success('删除成功');
+    await fetchList();
+  } catch {
+    // error handled by interceptor
+  }
 }
 
 // 初始加载
@@ -91,77 +107,79 @@ fetchList();
 </script>
 
 <template>
-  <Page auto-content-height>
-    <template #extra>
-      <VbenButton type="primary" @click="handleAdd">
-        <Plus class="size-4" />
-        新建分类
-      </VbenButton>
-    </template>
+  <div>
+    <PageHeader title="分类管理">
+      <template #extra>
+        <Button type="primary" @click="handleAdd">
+          <PlusOutlined />
+          新建分类
+        </Button>
+      </template>
+    </PageHeader>
 
-    <div class="rounded-lg bg-background p-4">
-      <table class="w-full">
-        <thead>
-          <tr class="border-b text-left text-sm text-muted-foreground">
-            <th class="pb-3 pr-4 font-medium" style="width: 60px">ID</th>
-            <th class="pb-3 pr-4 font-medium">分类名称</th>
-            <th class="pb-3 pr-4 font-medium" style="width: 80px">排序</th>
-            <th class="pb-3 pr-4 font-medium" style="width: 80px">诗歌数</th>
-            <th class="pb-3 font-medium" style="width: 150px">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="item in categoryList"
-            :key="item.id"
-            class="border-b last:border-b-0"
-          >
-            <td class="py-3 pr-4 text-sm">{{ item.id }}</td>
-            <td class="py-3 pr-4 text-sm">{{ item.name }}</td>
-            <td class="py-3 pr-4 text-sm">{{ item.sort }}</td>
-            <td class="py-3 pr-4 text-sm">{{ item.poem_count ?? 0 }}</td>
-            <td class="py-3">
-              <div class="flex items-center gap-2">
-                <VbenButton size="sm" variant="ghost" @click="handleEdit(item)">
-                  编辑
-                </VbenButton>
-                <VbenButton
-                  size="sm"
-                  variant="ghost"
-                  class="text-destructive"
-                  @click="handleDelete(item.id)"
-                >
+    <Card :bordered="false">
+      <Table
+        :columns="columns"
+        :data-source="categoryList"
+        :row-key="(record: Category) => record.id"
+        :pagination="false"
+        bordered
+        size="middle"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'poem_count'">
+            {{ record.poem_count ?? 0 }}
+          </template>
+          <template v-else-if="column.key === 'operation'">
+            <Space>
+              <Button size="small" @click="handleEdit(record as Category)">
+                <EditOutlined />
+                编辑
+              </Button>
+              <Popconfirm
+                title="确定删除该分类吗？"
+                ok-text="确定"
+                cancel-text="取消"
+                @confirm="handleDelete(record.id)"
+              >
+                <Button size="small" danger>
+                  <DeleteOutlined />
                   删除
-                </VbenButton>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="categoryList.length === 0">
-            <td colspan="5" class="py-8 text-center text-muted-foreground">
-              暂无数据
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+                </Button>
+              </Popconfirm>
+            </Space>
+          </template>
+        </template>
+      </Table>
+    </Card>
 
-    <!-- 新建/编辑表单 -->
-    <div
-      v-if="showForm"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+    <!-- 新建/编辑弹窗 -->
+    <Modal
+      v-model:open="modalVisible"
+      :title="editingId ? '编辑分类' : '新建分类'"
+      :confirm-loading="submitting"
+      destroy-on-close
+      @ok="handleSubmit"
+      @cancel="modalVisible = false"
     >
-      <div class="w-full max-w-md rounded-lg bg-background p-6 shadow-lg">
-        <h3 class="mb-4 text-lg font-semibold">
-          {{ editingId ? '编辑分类' : '新建分类' }}
-        </h3>
-        <CategoryForm />
-        <div class="mt-4 flex justify-end gap-2">
-          <VbenButton variant="outline" @click="showForm = false">
-            取消
-          </VbenButton>
-          <VbenButton type="primary" @click="handleSubmit"> 确定 </VbenButton>
-        </div>
-      </div>
-    </div>
-  </Page>
+      <Form
+        ref="formRef"
+        :model="formData"
+        layout="vertical"
+        @finish="handleSubmit"
+      >
+        <FormItem label="分类名称" name="name" required>
+          <Input v-model:value="formData.name" placeholder="请输入分类名称" />
+        </FormItem>
+        <FormItem label="排序值" name="sort">
+          <InputNumber
+            v-model:value="formData.sort"
+            :min="0"
+            style="width: 100%"
+            placeholder="请输入排序值"
+          />
+        </FormItem>
+      </Form>
+    </Modal>
+  </div>
 </template>

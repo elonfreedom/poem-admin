@@ -4,8 +4,10 @@ import type { CreatePoetryParams, ImportError } from '#/api';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { Page, VbenButton } from '@vben/common-ui';
+import { ArrowLeftOutlined, UploadOutlined } from '@ant-design/icons-vue';
+import { Button, Space } from 'ant-design-vue';
 
+import PageHeader from '#/components/PageHeader.vue';
 import { importPoetryApi } from '#/api';
 
 const router = useRouter();
@@ -277,26 +279,31 @@ function resetBatch() {
 </script>
 
 <template>
-  <Page title="批量导入">
-    <template #extra>
-      <div class="flex gap-2">
-        <VbenButton @click="router.push('/poetry/create')">单个录入</VbenButton>
-        <VbenButton @click="router.push('/poetry/list')">返回列表</VbenButton>
-      </div>
-    </template>
+  <div>
+    <PageHeader title="批量导入">
+      <template #extra>
+        <Space>
+          <Button @click="router.push('/poetry/create')">
+            <UploadOutlined />
+            单个录入
+          </Button>
+          <Button @click="router.push('/poetry/list')">
+            <ArrowLeftOutlined />
+            返回列表
+          </Button>
+        </Space>
+      </template>
+    </PageHeader>
 
     <div class="mb-4 flex items-center justify-between">
-      <VbenButton size="small" variant="outline" @click="downloadTemplate">
-        下载模板
-      </VbenButton>
-      <VbenButton
+      <Button size="small" @click="downloadTemplate">下载模板</Button>
+      <Button
         v-if="parsedPoems.length > 0"
         size="small"
-        variant="outline"
         @click="resetBatch"
       >
         重新上传
-      </VbenButton>
+      </Button>
     </div>
 
     <!-- 上传区域 -->
@@ -337,9 +344,9 @@ function resetBatch() {
             共解析 {{ rawPoems.length }} 首，请确认字段对应关系
           </span>
         </div>
-        <VbenButton size="small" @click="applyMappingAndParse">
+        <Button size="small" @click="applyMappingAndParse">
           应用映射
-        </VbenButton>
+        </Button>
       </div>
 
       <!-- 统一来源输入 -->
@@ -353,7 +360,7 @@ function resetBatch() {
           v-model="defaultSource"
           type="text"
           placeholder="设置后应用到本次导入的所有诗文（如《唐诗三百首》）"
-          class="h-8 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+          class="h-8 flex-1 rounded-md border border-gray-300 bg-white px-3 text-sm"
         />
         <span class="shrink-0 text-xs text-gray-500">
           优先级低于字段映射中的来源列
@@ -373,7 +380,7 @@ function resetBatch() {
             </span>
             <select
               v-model="fieldMapping[field.key]"
-              class="h-8 flex-1 rounded-md border border-input bg-background px-2 text-sm"
+              class="h-8 flex-1 rounded-md border border-gray-300 bg-white px-2 text-sm"
             >
               <option value="">不映射</option>
               <option v-for="f in sourceFields" :key="f" :value="f">
@@ -459,13 +466,13 @@ function resetBatch() {
                       </td>
                       <td class="max-w-[180px] truncate px-2 py-1">
                         <span
-                          v-if="fieldMapping[field.key]"
+                          v-if="fieldMapping[field.key] && rawPoems[0]"
                           class="text-gray-800"
                         >
                           {{
                             JSON.stringify(
-                              rawPoems[0]?.[fieldMapping[field.key]],
-                            )?.slice(0, 40) || '(空)'
+                              rawPoems[0][fieldMapping[field.key]!],
+                            ).slice(0, 40) || '(空)'
                           }}
                         </span>
                         <span v-else class="text-gray-400 italic">(未映射)</span>
@@ -481,7 +488,8 @@ function resetBatch() {
           <div v-if="showRawJson" class="mt-3">
             <pre
               class="max-h-60 overflow-auto rounded bg-gray-900 p-3 text-xs text-green-400"
-              >{{ JSON.stringify(rawPoems[0], null, 2) }}</pre>
+              >{{ JSON.stringify(rawPoems[0], null, 2) }}</pre
+            >
           </div>
         </div>
       </div>
@@ -497,14 +505,14 @@ function resetBatch() {
             校验失败 {{ invalidCount }} 首
           </span>
         </div>
-        <VbenButton
+        <Button
           size="small"
           :disabled="validCount === 0 || importing"
           @click="handleBatchImport"
         >
           <span v-if="importing">导入中...</span>
           <span v-else>确认导入</span>
-        </VbenButton>
+        </Button>
       </div>
 
       <div class="overflow-x-auto rounded-md border">
@@ -544,7 +552,7 @@ function resetBatch() {
               <td class="px-3 py-2">
                 <span
                   v-if="record.poem.status === 'draft'"
-                  class="inline-block rounded-md bg-secondary px-2 py-0.5 text-xs text-secondary-foreground"
+                  class="inline-block rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
                 >
                   草稿
                 </span>
@@ -571,7 +579,7 @@ function resetBatch() {
                 </span>
                 <span
                   v-else
-                  class="inline-block rounded-md bg-destructive px-2 py-0.5 text-xs text-white"
+                  class="inline-block rounded-md bg-red-500 px-2 py-0.5 text-xs text-white"
                   :title="record.errors.join('；')"
                 >
                   失败
@@ -614,10 +622,10 @@ function resetBatch() {
       </div>
 
       <div class="mt-4">
-        <VbenButton v-if="importResult.failed > 0" @click="resetBatch">
+        <Button v-if="importResult.failed > 0" @click="resetBatch">
           重新上传
-        </VbenButton>
+        </Button>
       </div>
     </div>
-  </Page>
+  </div>
 </template>
