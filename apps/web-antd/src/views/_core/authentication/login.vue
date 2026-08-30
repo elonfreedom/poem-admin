@@ -1,52 +1,63 @@
 <script lang="ts" setup>
-import type { VbenFormSchema } from '@vben/common-ui';
+import { reactive, ref } from 'vue';
 
-import { computed, markRaw } from 'vue';
-
-import { AuthenticationLogin, SliderCaptcha, z } from '@vben/common-ui';
-import { $t } from '@vben/locales';
+import { Button, Form, FormItem, Input, message } from 'ant-design-vue';
+import type { FormInstance } from 'ant-design-vue';
 
 import { useAuthStore } from '#/store';
 
 defineOptions({ name: 'Login' });
 
 const authStore = useAuthStore();
+const formRef = ref<FormInstance>();
 
-const formSchema = computed((): VbenFormSchema[] => {
-  return [
-    {
-      component: 'VbenInput',
-      componentProps: {
-        placeholder: $t('authentication.usernameTip'),
-      },
-      fieldName: 'username',
-      label: $t('authentication.username'),
-      rules: z.string().min(1, { message: $t('authentication.usernameTip') }),
-    },
-    {
-      component: 'VbenInputPassword',
-      componentProps: {
-        placeholder: $t('authentication.password'),
-      },
-      fieldName: 'password',
-      label: $t('authentication.password'),
-      rules: z.string().min(1, { message: $t('authentication.passwordTip') }),
-    },
-    {
-      component: markRaw(SliderCaptcha),
-      fieldName: 'captcha',
-      rules: z.boolean().refine((value) => value, {
-        message: $t('authentication.verifyRequiredTip'),
-      }),
-    },
-  ];
+const formData = reactive({
+  username: '',
+  password: '',
 });
+
+async function handleSubmit() {
+  console.log('handleSubmit called', formData.username, formData.password);
+  try {
+    await formRef.value?.validate();
+    console.log('validation passed');
+  } catch (e) {
+    console.log('validation failed', e);
+    message.warning('请输入用户名和密码');
+    return;
+  }
+  await authStore.authLogin(formData);
+}
 </script>
 
 <template>
-  <AuthenticationLogin
-    :form-schema="formSchema"
-    :loading="authStore.loginLoading"
-    @submit="authStore.authLogin"
-  />
+  <Form ref="formRef" :model="formData" layout="vertical">
+    <FormItem label="用户名" name="username" required>
+      <Input
+        v-model:value="formData.username"
+        placeholder="请输入用户名"
+        size="large"
+        autocomplete="username"
+      />
+    </FormItem>
+    <FormItem label="密码" name="password" required>
+      <Input.Password
+        v-model:value="formData.password"
+        placeholder="请输入密码"
+        size="large"
+        autocomplete="current-password"
+      />
+    </FormItem>
+    <FormItem>
+      <Button
+        type="primary"
+        :loading="authStore.loginLoading"
+        block
+        size="large"
+        @click="handleSubmit"
+      >
+        登录
+      </Button>
+    </FormItem>
+  </Form>
 </template>

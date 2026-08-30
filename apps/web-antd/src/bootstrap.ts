@@ -1,71 +1,41 @@
 import { createApp, watchEffect } from 'vue';
 
-import { registerAccessDirective } from '@vben/access';
-import { registerLoadingDirective } from '@vben/common-ui/es/loading';
-import { preferences } from '@vben/preferences';
-import { initStores } from '@vben/stores';
-import '@vben/styles';
-import '@vben/styles/antd';
+import { preferences, usePreferencesStore } from '#/stores/preferences';
+import { initStores } from '#/lib/stores';
 
 import { useTitle } from '@vueuse/core';
 
 import { $t, setupI18n } from '#/locales';
 
-import { initComponentAdapter } from './adapter/component';
-import { initSetupVbenForm } from './adapter/form';
 import App from './app.vue';
-import { router } from './router';
 
-async function bootstrap(namespace: string) {
-  // 初始化组件适配器
-  await initComponentAdapter();
-
-  // 初始化表单组件
-  await initSetupVbenForm();
-
-  // // 设置弹窗的默认配置
-  // setDefaultModalProps({
-  //   fullscreenButton: false,
-  // });
-  // // 设置抽屉的默认配置
-  // setDefaultDrawerProps({
-  //   zIndex: 1020,
-  // });
-
+async function bootstrap() {
   const app = createApp(App);
 
-  // 注册v-loading指令
-  registerLoadingDirective(app, {
-    loading: 'loading', // 在这里可以自定义指令名称，也可以明确提供false表示不注册这个指令
-    spinning: 'spinning',
-  });
+  // 配置 pinia-store（必须在最前面，因为后续所有 store 访问都依赖它）
+  const pinia = initStores(app);
 
-  // 国际化 i18n 配置
+  // 获取偏好设置 store 并设置引用（必须在 setupI18n 和路由导入之前）
+  const preferencesStore = usePreferencesStore(pinia);
+  preferences.setStore(preferencesStore);
+
+  // 国际化 i18n 配置（依赖 preferences store 的语言设置）
   await setupI18n(app);
 
-  // 配置 pinia-tore
-  await initStores(app, { namespace });
-
-  // 安装权限指令
-  registerAccessDirective(app);
-
-  // 初始化 tippy
-  const { initTippy } = await import('@vben/common-ui/es/tippy');
-  initTippy(app);
+  // 动态导入路由（必须在 setStore 之后，因为路由定义中引用了 preferences.app.defaultHomePath）
+  const { router } = await import('./router');
 
   // 配置路由及路由守卫
   app.use(router);
 
-  // 配置Motion插件
-  const { MotionPlugin } = await import('@vben/plugins/motion');
-  app.use(MotionPlugin);
-
   // 动态更新标题
   watchEffect(() => {
-    if (preferences.app.dynamicTitle) {
-      const routeTitle = router.currentRoute.value.meta?.title;
+    if (preferencesStore.app.dynamicTitle) {
+      const routeTitle = router.currentRoute.value.meta?.title as
+        | string
+        | undefined;
       const pageTitle =
-        (routeTitle ? `${$t(routeTitle)} - ` : '') + preferences.app.name;
+        (routeTitle ? `${$t(routeTitle)} - ` : '') + preferencesStore.app.name;
       useTitle(pageTitle);
     }
   });
