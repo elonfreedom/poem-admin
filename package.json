@@ -1,14 +1,50 @@
 {
   "name": "poem-admin",
   "version": "1.0.0",
-  "description": "晓诗诗词管理后台 - 基于 Vue 3 + Ant Design Vue",
+  "description": "晓诗诗词管理后台 - 基于 Vue 3 + shadcn-vue",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm -F poem-admin run dev",
-    "build": "pnpm -F poem-admin run build",
-    "typecheck": "pnpm -F poem-admin run typecheck",
-    "preview": "pnpm -F poem-admin run preview"
+    "dev": "vite --mode devprod",
+    "dev:local": "vite --mode development",
+    "build": "vite build --mode production",
+    "build:analyze": "vite build --mode analyze",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit --skipLibCheck"
+  },
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "dependencies": {
+    "@lucide/vue": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@vueuse/core": "catalog:",
+    "axios": "catalog:",
+    "class-variance-authority": "catalog:",
+    "clsx": "catalog:",
+    "dayjs": "catalog:",
+    "lodash-es": "catalog:",
+    "lucide-vue-next": "catalog:",
+    "nprogress": "catalog:",
+    "pinia": "catalog:",
+    "reka-ui": "catalog:",
+    "shadcn-vue": "catalog:",
+    "tailwind-merge": "catalog:",
+    "tailwindcss": "catalog:",
+    "tw-animate-css": "catalog:",
+    "vue": "catalog:",
+    "vue-i18n": "catalog:",
+    "vue-router": "catalog:",
+    "vue-sonner": "^2.0.9"
+  },
+  "devDependencies": {
+    "@types/lodash-es": "catalog:",
+    "@types/nprogress": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vitejs/plugin-vue-jsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vue-tsc": "catalog:"
   },
   "engines": {
     "node": "^22.18.0 || ^24.12.0",

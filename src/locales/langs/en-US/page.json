@@ -1,0 +1,50 @@
+{
+  "auth": {
+    "login": "Sign In",
+    "loginLoading": "Signing in…",
+    "register": "Register",
+    "codeLogin": "Code Login",
+    "qrcodeLogin": "Qr Code Login",
+    "forgetPassword": "Forgot password?",
+    "forgotPasswordDesc": "Please contact the system administrator to reset your password",
+    "profile": "Profile",
+    "username": "Username",
+    "usernamePlaceholder": "Enter your username",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "rememberMe": "Remember me",
+    "welcomeBack": "Welcome back, companion of poetry",
+    "errors": {
+      "usernameRequired": "Please enter your username",
+      "passwordRequired": "Please enter your password",
+      "userNotFound": "Username not found",
+      "wrongPassword": "Incorrect password, please try again",
+      "accountLocked": "Account locked, please contact administrator",
+      "networkError": "Network error, please check your connection",
+      "generic": "Login failed, please try again later"
+    }
+  },
+  "checkin": {
+    "title": "Check-in",
+    "list": "Records",
+    "stats": "Statistics",
+    "nickname": "Nickname",
+    "checkinDate": "Check-in Date",
+    "poem": "Related Poem",
+    "consecutiveDays": "Consecutive Days",
+    "dailyAvgRate": "Daily Avg Rate",
+    "retention7d": "7-Day Retention",
+    "totalCheckins": "Total Check-ins",
+    "checkinUsers": "Check-in Users",
+    "hotPoems": "Hot Poems",
+    "rank": "Rank",
+    "checkinCount": "Check-in Count",
+    "dateRange": "Date Range",
+    "search": "Search"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "analytics": "Analytics",
+    "workspace": "Workspace"
+  }
+}

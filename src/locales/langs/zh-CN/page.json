@@ -1,0 +1,50 @@
+{
+  "auth": {
+    "login": "登录",
+    "loginLoading": "登录中…",
+    "register": "注册",
+    "codeLogin": "验证码登录",
+    "qrcodeLogin": "二维码登录",
+    "forgetPassword": "忘记密码？",
+    "forgotPasswordDesc": "请联系系统管理员重置密码",
+    "profile": "个人中心",
+    "username": "用户名",
+    "usernamePlaceholder": "请输入用户名",
+    "password": "密码",
+    "passwordPlaceholder": "请输入密码",
+    "rememberMe": "记住我",
+    "welcomeBack": "欢迎回来，与诗词为伴",
+    "errors": {
+      "usernameRequired": "请输入用户名",
+      "passwordRequired": "请输入密码",
+      "userNotFound": "该用户名不存在",
+      "wrongPassword": "密码错误，请重试",
+      "accountLocked": "账号已被锁定，请联系管理员",
+      "networkError": "网络异常，请检查网络连接",
+      "generic": "登录失败，请稍后重试"
+    }
+  },
+  "checkin": {
+    "title": "打卡管理",
+    "list": "打卡记录",
+    "stats": "数据统计",
+    "nickname": "用户昵称",
+    "checkinDate": "打卡日期",
+    "poem": "关联诗文",
+    "consecutiveDays": "连续天数",
+    "dailyAvgRate": "日均打卡率",
+    "retention7d": "7日留存",
+    "totalCheckins": "总打卡次数",
+    "checkinUsers": "打卡用户数",
+    "hotPoems": "热门打卡诗文",
+    "rank": "排名",
+    "checkinCount": "打卡次数",
+    "dateRange": "日期范围",
+    "search": "搜索"
+  },
+  "dashboard": {
+    "title": "概览",
+    "analytics": "分析页",
+    "workspace": "工作台"
+  }
+}
