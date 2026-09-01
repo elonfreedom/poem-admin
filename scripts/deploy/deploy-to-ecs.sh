@@ -14,8 +14,8 @@
 set -euo pipefail
 
 # ======================== 配置区 ========================
-# 应用目录 (相对项目根目录)
-APP_DIR="apps/web-antd"
+# 应用目录 (相对项目根目录，迁移后为根目录)
+APP_DIR="."
 
 # Docker 镜像名
 IMAGE_NAME="poem-admin"
