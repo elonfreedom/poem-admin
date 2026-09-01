@@ -12,6 +12,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '#/components/ui/breadcrumb';
+import { $t } from '#/locales';
 
 const route = useRoute();
 
@@ -23,7 +24,7 @@ const breadcrumbs = computed(() => {
 
   return matched.map((item) => ({
     path: item.path,
-    title: item.meta?.title as string,
+    title: $t(item.meta?.title as string),
     clickable: item.path !== route.path,
   }));
 });

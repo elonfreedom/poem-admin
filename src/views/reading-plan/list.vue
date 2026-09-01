@@ -1,18 +1,17 @@
-<script lang="ts" setup >
-import type { Poetry, PoetryListParams } from '#/api';
+<script lang="ts" setup>
+import type {
+  ReadingPlan,
+  ReadingPlanListParams,
+} from '#/api';
 
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import {
-  BookOpen,
-  Calendar,
   Eye,
   Pencil,
   Plus,
-  Search,
   Trash2,
-  Wrench,
 } from 'lucide-vue-next';
 
 import { Badge } from '#/components/ui/badge';
@@ -46,22 +45,30 @@ import TableAction from '#/components/TableAction.vue';
 import { Pagination } from '#/components/ui/pagination';
 import { useTable } from '#/composables/useTable';
 import {
-  batchUpdatePoetryStatusApi,
-  deletePoetryApi,
-  getPoetryListApi,
-  updatePoetryStatusApi,
+  batchUpdateReadingPlanStatusApi,
+  deleteReadingPlanApi,
+  getReadingPlanListApi,
+  updateReadingPlanStatusApi,
 } from '#/api';
 import { formatDateTime } from '#/lib/utils';
 import { toast } from 'vue-sonner';
 
 const router = useRouter();
 
-/** 状态选项（"__all__" 表示全部，避免 reka-ui SelectItem 空字符串问题） */
+// 状态选项（"__all__" 表示全部，避免 reka-ui SelectItem 空字符串问题）
 const statusOptions = [
-  { label: '全部', value: '__all__' },
+  { label: '全部状态', value: '__all__' },
   { label: '草稿', value: 'draft' },
   { label: '已发布', value: 'published' },
   { label: '已归档', value: 'archived' },
+];
+
+// 难度选项（"__all__" 表示全部，避免 reka-ui SelectItem 空字符串问题）
+const difficultyOptions = [
+  { label: '全部难度', value: '__all__' },
+  { label: '入门', value: 'beginner' },
+  { label: '进阶', value: 'intermediate' },
+  { label: '高级', value: 'advanced' },
 ];
 
 const statusVariant: Record<string, string> = {
@@ -76,56 +83,43 @@ const statusLabels: Record<string, string> = {
   archived: '已归档',
 };
 
-const statusDotColor: Record<string, string> = {
-  draft: 'bg-yellow-500',
-  published: 'bg-emerald-500',
-  archived: 'bg-gray-400',
+const difficultyLabels: Record<string, string> = {
+  beginner: '入门',
+  intermediate: '进阶',
+  advanced: '高级',
 };
 
-/** 朝代选项（"__all__" 表示全部，避免 reka-ui SelectItem 空字符串问题） */
-const dynastyOptions = [
-  { label: '全部', value: '__all__' },
-  { label: '先秦', value: '先秦' },
-  { label: '汉', value: '汉' },
-  { label: '魏晋', value: '魏晋' },
-  { label: '南北朝', value: '南北朝' },
-  { label: '隋', value: '隋' },
-  { label: '唐', value: '唐' },
-  { label: '五代', value: '五代' },
-  { label: '宋', value: '宋' },
-  { label: '元', value: '元' },
-  { label: '明', value: '明' },
-  { label: '清', value: '清' },
-  { label: '近代', value: '近代' },
-  { label: '现代', value: '现代' },
-  { label: '未知', value: '未知' },
-];
+const difficultyVariant: Record<string, string> = {
+  beginner: 'outline',
+  intermediate: 'secondary',
+  advanced: 'default',
+};
 
-/** 搜索筛选 */
+// 搜索筛选
 const keyword = ref('');
-const dynasty = ref<string>('');
 const status = ref<string>('');
+const difficulty = ref<string>('');
 
-/** 选中行 */
+// 选中行
 const selectedRowKeys = ref<number[]>([]);
 
-/** 表格数据 */
-const { data, loading, pagination, refresh, setFilters } = useTable<Poetry>({
+// 表格数据
+const { data, loading, pagination, refresh, setFilters } = useTable<ReadingPlan>({
   fetchData: async ({ page, pageSize }) => {
-    const params: PoetryListParams = {
+    const params: ReadingPlanListParams = {
       page,
       page_size: pageSize,
       keyword: keyword.value || undefined,
-      dynasty: dynasty.value === '__all__' ? undefined : dynasty.value,
       status: status.value === '__all__' ? undefined : status.value,
+      difficulty: difficulty.value === '__all__' ? undefined : difficulty.value,
     };
-    return await getPoetryListApi(params);
+    return await getReadingPlanListApi(params);
   },
   defaultPageSize: 20,
   immediate: true,
 });
 
-/** 是否全选 */
+// 是否全选
 const isAllSelected = computed({
   get: () =>
     data.value.length > 0 &&
@@ -135,16 +129,16 @@ const isAllSelected = computed({
   },
 });
 
-/** 处理全选 Checkbox 变化（reka-ui 可能发出 "indeterminate"） */
+// 处理全选 Checkbox 变化
 function setAllSelected(val: boolean) {
   selectedRowKeys.value = val ? data.value.map((r) => r.id) : [];
 }
 
-/** 是否有选中 */
+// 是否有选中
 const hasSelection = computed(() => selectedRowKeys.value.length > 0);
 
-/** 处理单行 Checkbox 变化 */
-function setRowSelected(row: Poetry, val: boolean) {
+// 处理单行 Checkbox 变化
+function setRowSelected(row: ReadingPlan, val: boolean) {
   const index = selectedRowKeys.value.indexOf(row.id);
   if (val && index === -1) {
     selectedRowKeys.value.push(row.id);
@@ -153,51 +147,51 @@ function setRowSelected(row: Poetry, val: boolean) {
   }
 }
 
-/** 是否某行已选中 */
-function isRowSelected(row: Poetry): boolean {
+// 是否某行已选中
+function isRowSelected(row: ReadingPlan): boolean {
   return selectedRowKeys.value.includes(row.id);
 }
 
-/** 搜索 */
+// 搜索
 function handleSearch() {
   setFilters({});
 }
 
-/** 重置筛选 */
+// 重置筛选
 function handleReset() {
   keyword.value = '';
-  dynasty.value = '__all__';
   status.value = '__all__';
+  difficulty.value = '__all__';
   selectedRowKeys.value = [];
   setFilters({});
 }
 
-/** 筛选变化自动搜索 */
-watch([dynasty, status], () => {
+// 筛选变化自动搜索
+watch([status, difficulty], () => {
   setFilters({});
 });
 
-/** 操作处理 */
+// 操作处理
 function onCreate() {
-  router.push('/poetry/create');
+  router.push('/reading-plan/create');
 }
 
-function onEdit(row: Poetry) {
-  router.push(`/poetry/${row.id}/edit`);
+function onEdit(row: ReadingPlan) {
+  router.push(`/reading-plan/${row.id}/edit`);
 }
 
-/** 查看弹窗 */
+// 查看弹窗
 const viewDialogOpen = ref(false);
-const viewDetail = ref<Poetry | null>(null);
+const viewDetail = ref<ReadingPlan | null>(null);
 
-function onView(row: Poetry) {
+function onView(row: ReadingPlan) {
   viewDetail.value = row;
   viewDialogOpen.value = true;
 }
 
-async function onPublish(row: Poetry) {
+async function onPublish(row: ReadingPlan) {
   try {
-    await updatePoetryStatusApi(row.id, 'published');
+    await updateReadingPlanStatusApi(row.id, 'published');
     toast.success('发布成功');
     refresh();
   } catch {
@@ -205,9 +199,9 @@ async function onPublish(row: Poetry) {
   }
 }
 
-async function onArchive(row: Poetry) {
+async function onArchive(row: ReadingPlan) {
   try {
-    await updatePoetryStatusApi(row.id, 'archived');
+    await updateReadingPlanStatusApi(row.id, 'archived');
     toast.success('归档成功');
     refresh();
   } catch {
@@ -215,8 +209,8 @@ async function onArchive(row: Poetry) {
   }
 }
 
-function onDelete(row: Poetry) {
-  deletePoetryApi(row.id)
+function onDelete(row: ReadingPlan) {
+  deleteReadingPlanApi(row.id)
     .then(() => {
       toast.success(`「${row.title}」已删除`);
       refresh();
@@ -226,11 +220,11 @@ function onDelete(row: Poetry) {
 
 async function onBatchPublish() {
   if (selectedRowKeys.value.length === 0) {
-    toast.warning('请先选择要发布的诗歌');
+    toast.warning('请先选择要发布的计划');
     return;
   }
   try {
-    await batchUpdatePoetryStatusApi(selectedRowKeys.value, 'published');
+    await batchUpdateReadingPlanStatusApi(selectedRowKeys.value, 'published');
     toast.success('批量发布成功');
     selectedRowKeys.value = [];
     refresh();
@@ -241,11 +235,11 @@ async function onBatchPublish() {
 
 async function onBatchArchive() {
   if (selectedRowKeys.value.length === 0) {
-    toast.warning('请先选择要归档的诗歌');
+    toast.warning('请先选择要归档的计划');
     return;
   }
   try {
-    await batchUpdatePoetryStatusApi(selectedRowKeys.value, 'archived');
+    await batchUpdateReadingPlanStatusApi(selectedRowKeys.value, 'archived');
     toast.success('批量归档成功');
     selectedRowKeys.value = [];
     refresh();
@@ -254,61 +248,45 @@ async function onBatchArchive() {
   }
 }
 
-function onBatchConvert() {
-  router.push('/tools');
-}
-
-/** 分页变化 */
+// 分页变化
 function handlePageChange(page: number) {
   pagination.value.current = page;
   loadListData();
 }
 
-/** 每页条数变化 */
+// 每页条数变化
 function handlePageSizeChange(size: number) {
   pagination.value.pageSize = size;
   pagination.value.current = 1;
   loadListData();
 }
 
-/** 手动加载数据（分页变化时调用） */
+// 手动加载数据（分页变化时调用）
 async function loadListData() {
-  const params: PoetryListParams = {
+  const params: ReadingPlanListParams = {
     page: pagination.value.current,
     page_size: pagination.value.pageSize,
     keyword: keyword.value || undefined,
-    dynasty: dynasty.value || undefined,
-    status: status.value || undefined,
+    status: status.value === '__all__' ? undefined : status.value,
+    difficulty: difficulty.value === '__all__' ? undefined : difficulty.value,
   };
-  const result = await getPoetryListApi(params);
+  const result = await getReadingPlanListApi(params);
   data.value = result.items;
   pagination.value.total = result.total;
-}
-
-/** 截断内容 */
-function truncate(text: string, len: number): string {
-  if (!text) return '-';
-  return text.length > len ? text.slice(0, len) + '...' : text;
 }
 </script>
 
 <template>
   <div class="space-y-4">
-    <PageHeader title="诗歌管理">
+    <PageHeader title="阅读计划">
       <template #description>
-        管理诗词内容，支持录入、编辑、发布、归档等操作
+        创建和管理主题化诗词阅读计划，引导用户系统学习
       </template>
       <template #extra>
-        <div class="flex items-center gap-2">
-          <Button variant="outline" size="sm" @click="onBatchConvert">
-            <Wrench class="mr-2 h-4 w-4" />
-            工具
-          </Button>
-          <Button size="sm" @click="onCreate">
-            <Plus class="mr-2 h-4 w-4" />
-            录入诗歌
-          </Button>
-        </div>
+        <Button size="sm" @click="onCreate">
+          <Plus class="mr-2 h-4 w-4" />
+          创建计划
+        </Button>
       </template>
     </PageHeader>
 
@@ -316,26 +294,12 @@ function truncate(text: string, len: number): string {
     <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div class="flex flex-wrap items-center gap-3">
         <div class="search-wrap">
-          <Search class="search-icon" />
           <Input
             v-model="keyword"
-            placeholder="搜索标题或作者..."
+            placeholder="搜索计划名称..."
             class="search-input"
             @keyup.enter="handleSearch" />
         </div>
-        <Select v-model="dynasty">
-          <SelectTrigger class="w-28">
-            <SelectValue placeholder="朝代" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem
-              v-for="opt in dynastyOptions"
-              :key="opt.value"
-              :value="opt.value">
-              {{ opt.label }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
         <Select v-model="status">
           <SelectTrigger class="w-28">
             <SelectValue placeholder="状态" />
@@ -343,6 +307,19 @@ function truncate(text: string, len: number): string {
           <SelectContent>
             <SelectItem
               v-for="opt in statusOptions"
+              :key="opt.value"
+              :value="opt.value">
+              {{ opt.label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <Select v-model="difficulty">
+          <SelectTrigger class="w-28">
+            <SelectValue placeholder="难度" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              v-for="opt in difficultyOptions"
               :key="opt.value"
               :value="opt.value">
               {{ opt.label }}
@@ -393,13 +370,13 @@ function truncate(text: string, len: number): string {
                 @update:modelValue="setAllSelected($event as boolean)" />
             </TableHead>
             <TableHead class="w-[60px]">ID</TableHead>
-            <TableHead>标题</TableHead>
-            <TableHead class="w-[90px]">作者</TableHead>
-            <TableHead class="w-[70px]">朝代</TableHead>
-            <TableHead class="w-[80px]">分类</TableHead>
+            <TableHead>计划名称</TableHead>
+            <TableHead class="w-[80px]">难度</TableHead>
+            <TableHead class="w-[80px] text-center">诗词数</TableHead>
+            <TableHead class="w-[90px] text-center">参与人数</TableHead>
             <TableHead class="w-[90px]">状态</TableHead>
             <TableHead class="w-[160px]">创建时间</TableHead>
-            <TableHead class="w-[160px] text-right">操作</TableHead>
+            <TableHead class="w-[180px] text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -432,22 +409,27 @@ function truncate(text: string, len: number): string {
                     {{ row.title }}
                   </div>
                   <div
-                    v-if="row.content"
+                    v-if="row.description"
                     class="mt-0.5 text-xs text-muted-foreground truncate"
-                    :title="row.content">
-                    {{ truncate(row.content.replace(/\n/g, ' '), 40) }}
+                    :title="row.description">
+                    {{ row.description }}
                   </div>
                 </div>
               </TableCell>
-              <TableCell>{{ row.author || '-' }}</TableCell>
               <TableCell>
-                <span v-if="row.dynasty" class="dynasty-tag">{{ row.dynasty }}</span>
+                <Badge v-if="row.difficulty" :variant="difficultyVariant[row.difficulty] as any" class="difficulty-badge">
+                  {{ difficultyLabels[row.difficulty] || row.difficulty }}
+                </Badge>
                 <span v-else class="text-muted-foreground">-</span>
               </TableCell>
-              <TableCell>{{ row.category_name || '-' }}</TableCell>
+              <TableCell class="text-center font-medium">
+                {{ row.poem_count }}
+              </TableCell>
+              <TableCell class="text-center">
+                <span class="font-medium">{{ row.participant_count }}</span>
+              </TableCell>
               <TableCell>
                 <Badge :variant="statusVariant[row.status] as any" class="status-badge">
-                  <span class="status-dot" :class="statusDotColor[row.status]" />
                   {{ statusLabels[row.status] || row.status }}
                 </Badge>
               </TableCell>
@@ -460,22 +442,22 @@ function truncate(text: string, len: number): string {
                     {
                       text: '查看',
                       icon: Eye,
-                      onClick: () => onView(row as Poetry),
+                      onClick: () => onView(row as ReadingPlan),
                     },
                     {
                       text: '编辑',
                       icon: Pencil,
-                      onClick: () => onEdit(row as Poetry),
+                      onClick: () => onEdit(row as ReadingPlan),
                     },
                     {
                       text: '发布',
                       ifShow: row.status === 'draft',
-                      onClick: () => onPublish(row as Poetry),
+                      onClick: () => onPublish(row as ReadingPlan),
                     },
                     {
                       text: '归档',
                       ifShow: row.status === 'published',
-                      onClick: () => onArchive(row as Poetry),
+                      onClick: () => onArchive(row as ReadingPlan),
                     },
                   ]"
                   :dropdown-actions="[
@@ -485,7 +467,7 @@ function truncate(text: string, len: number): string {
                       danger: true,
                       confirm: {
                         title: `确定删除「${row.title}」吗？`,
-                        confirm: () => onDelete(row as Poetry),
+                        confirm: () => onDelete(row as ReadingPlan),
                       },
                     },
                   ]"
@@ -497,18 +479,18 @@ function truncate(text: string, len: number): string {
             <TableRow v-if="data.length === 0">
               <TableCell colspan="9" class="h-64">
                 <div class="empty-state">
-                  <Search class="h-12 w-12 text-muted-foreground/30" />
-                  <p class="empty-title">暂无数据</p>
+                  <Pencil class="h-12 w-12 text-muted-foreground/30" />
+                  <p class="empty-title">暂无阅读计划</p>
                   <p class="empty-desc">
-                    {{ keyword || dynasty || status ? '没有找到匹配的诗歌，试试调整筛选条件' : '还没有录入任何诗歌' }}
+                    {{ keyword || status || difficulty ? '没有找到匹配的计划，试试调整筛选条件' : '创建第一个阅读计划，让用户系统学习诗词' }}
                   </p>
                   <Button
-                    v-if="!keyword && !dynasty && !status"
+                    v-if="!keyword && !status && !difficulty"
                     size="sm"
                     class="mt-4"
                     @click="onCreate">
                     <Plus class="mr-2 h-4 w-4" />
-                    录入诗歌
+                    创建计划
                   </Button>
                   <Button
                     v-else
@@ -542,42 +524,52 @@ function truncate(text: string, len: number): string {
       <DialogContent v-if="viewDetail" class="max-w-2xl">
         <DialogHeader>
           <DialogTitle class="flex items-center gap-2">
-            <BookOpen class="h-5 w-5" />
             {{ viewDetail.title }}
           </DialogTitle>
         </DialogHeader>
         <div class="space-y-4">
           <!-- 元信息 -->
           <div class="flex flex-wrap gap-4 text-sm text-muted-foreground">
-            <span class="flex items-center gap-1">
-              <Calendar class="h-4 w-4" />
-              {{ viewDetail.dynasty || '未知朝代' }}
-            </span>
-            <span>{{ viewDetail.author || '佚名' }}</span>
+            <Badge :variant="difficultyVariant[viewDetail.difficulty] as any">
+              {{ difficultyLabels[viewDetail.difficulty] || viewDetail.difficulty }}
+            </Badge>
             <Badge :variant="statusVariant[viewDetail.status] as any">
               {{ statusLabels[viewDetail.status] || viewDetail.status }}
             </Badge>
           </div>
-          <!-- 内容 -->
-          <div class="space-y-2">
-            <h4 class="text-sm font-medium text-muted-foreground">诗词内容</h4>
-            <div class="poetry-content">
-              {{ viewDetail.content }}
+          <!-- 描述 -->
+          <div v-if="viewDetail.description" class="space-y-2">
+            <h4 class="text-sm font-medium text-muted-foreground">计划描述</h4>
+            <p class="text-sm whitespace-pre-wrap">{{ viewDetail.description }}</p>
+          </div>
+          <!-- 标签 -->
+          <div v-if="viewDetail.tags && viewDetail.tags.length > 0" class="space-y-2">
+            <h4 class="text-sm font-medium text-muted-foreground">标签</h4>
+            <div class="flex flex-wrap gap-2">
+              <Badge v-for="tag in viewDetail.tags" :key="tag" variant="outline">
+                {{ tag }}
+              </Badge>
             </div>
           </div>
-          <!-- 翻译 -->
-          <div v-if="viewDetail.translation" class="space-y-2">
-            <h4 class="text-sm font-medium text-muted-foreground">翻译</h4>
-            <p class="text-sm whitespace-pre-wrap">{{ viewDetail.translation }}</p>
+          <!-- 统计 -->
+          <div class="grid grid-cols-3 gap-4">
+            <div class="rounded-lg bg-muted p-3 text-center">
+              <div class="text-lg font-semibold">{{ viewDetail.poem_count }}</div>
+              <div class="text-xs text-muted-foreground">诗词数量</div>
+            </div>
+            <div class="rounded-lg bg-muted p-3 text-center">
+              <div class="text-lg font-semibold">{{ viewDetail.participant_count }}</div>
+              <div class="text-xs text-muted-foreground">参与人数</div>
+            </div>
+            <div class="rounded-lg bg-muted p-3 text-center">
+              <div class="text-lg font-semibold">{{ viewDetail.completion_count }}</div>
+              <div class="text-xs text-muted-foreground">完成人数</div>
+            </div>
           </div>
-          <!-- 赏析 -->
-          <div v-if="viewDetail.appreciation" class="space-y-2">
-            <h4 class="text-sm font-medium text-muted-foreground">赏析</h4>
-            <p class="text-sm whitespace-pre-wrap">{{ viewDetail.appreciation }}</p>
-          </div>
-          <!-- 来源 -->
-          <div v-if="viewDetail.source" class="text-xs text-muted-foreground">
-            来源：{{ viewDetail.source }}
+          <!-- 时间 -->
+          <div class="flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <span>创建时间：{{ formatDateTime(viewDetail.created_at) }}</span>
+            <span>更新时间：{{ formatDateTime(viewDetail.updated_at) }}</span>
           </div>
         </div>
       </DialogContent>
@@ -588,39 +580,16 @@ function truncate(text: string, len: number): string {
 <style scoped>
 /* ===== 搜索框 ===== */
 .search-wrap {
-  position: relative;
   width: 240px;
 }
 
-.search-icon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  color: var(--text-muted-foreground, oklch(0.55 0.005 60));
-  pointer-events: none;
-}
-
 .search-input {
-  padding-left: 34px;
+  padding-left: 12px;
 }
 
-/* ===== 朝代标签 ===== */
-.dynasty-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  background: oklch(0.95 0.01 75);
-  color: oklch(0.4 0.02 60);
-}
-
-.dark .dynasty-tag {
-  background: oklch(0.2 0.01 60);
-  color: oklch(0.75 0.02 70);
+/* ===== 难度标签 ===== */
+.difficulty-badge {
+  font-size: 11px;
 }
 
 /* ===== 状态标签 ===== */
@@ -628,12 +597,6 @@ function truncate(text: string, len: number): string {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
 }
 
 /* ===== 批量操作栏 ===== */
@@ -712,20 +675,5 @@ function truncate(text: string, len: number): string {
   justify-content: flex-end;
   padding: 16px;
   border-top: 1px solid var(--color-border);
-}
-
-/* ===== 查看弹窗 ===== */
-.poetry-content {
-  padding: 16px;
-  background: oklch(0.97 0.005 80 / 0.5);
-  border-radius: 8px;
-  font-family: 'Noto Serif SC', serif;
-  font-size: 15px;
-  line-height: 2;
-  white-space: pre-wrap;
-}
-
-.dark .poetry-content {
-  background: oklch(0.18 0.008 60 / 0.5);
 }
 </style>

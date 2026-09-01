@@ -9,6 +9,7 @@ import type { ClassValue } from 'clsx';
 
 import type NProgress from 'nprogress';
 import { clsx } from 'clsx';
+import dayjs from 'dayjs';
 import { twMerge } from 'tailwind-merge';
 
 // ==================== 样式工具 ====================
@@ -173,6 +174,50 @@ function unmountGlobalLoading() {
   }
 }
 
+// ==================== 时间格式化 ====================
+
+/**
+ * 格式化日期时间
+ * @param value ISO 时间字符串
+ * @param format 格式模板，默认 'YYYY-MM-DD HH:mm'
+ */
+function formatDateTime(
+  value: string | undefined | null,
+  format = 'YYYY-MM-DD HH:mm',
+): string {
+  if (!value) return '-';
+  const d = dayjs(value);
+  return d.isValid() ? d.format(format) : '-';
+}
+
+/**
+ * 格式化日期（不含时间）
+ * @param value ISO 时间字符串
+ */
+function formatDate(value: string | undefined | null): string {
+  return formatDateTime(value, 'YYYY-MM-DD');
+}
+
+/**
+ * 格式化相对时间（3 天前、刚刚等）
+ * @param value ISO 时间字符串
+ */
+function formatRelativeTime(value: string | undefined | null): string {
+  if (!value) return '-';
+  const d = dayjs(value);
+  if (!d.isValid()) return '-';
+  const now = dayjs();
+  const diffSec = now.diff(d, 'second');
+  if (diffSec < 60) return '刚刚';
+  const diffMin = now.diff(d, 'minute');
+  if (diffMin < 60) return `${diffMin} 分钟前`;
+  const diffHour = now.diff(d, 'hour');
+  if (diffHour < 24) return `${diffHour} 小时前`;
+  const diffDay = now.diff(d, 'day');
+  if (diffDay < 30) return `${diffDay} 天前`;
+  return d.format('YYYY-MM-DD HH:mm');
+}
+
 // ==================== 通用判断 ====================
 
 /**
@@ -196,6 +241,9 @@ function isEmpty(value: unknown): boolean {
 
 export {
   cn,
+  formatDate,
+  formatDateTime,
+  formatRelativeTime,
   isEmpty,
   mergeRouteModules,
   openWindow,

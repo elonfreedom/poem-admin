@@ -6,39 +6,39 @@ const routes: RouteRecordRaw[] = [
   {
     component: NestedLayout,
     meta: {
-      icon: 'lucide:user-pen',
-      order: 20,
-      title: 'page.author.title',
+      icon: 'lucide:book-marked',
+      order: 4,
+      title: 'page.readingPlan.title',
     },
-    name: 'Author',
-    path: '/author',
+    name: 'ReadingPlan',
+    path: '/reading-plan',
     redirect: 'list',
     children: [
       {
-        name: 'AuthorList',
+        name: 'ReadingPlanList',
         path: 'list',
-        component: () => import('#/views/author/list.vue'),
+        component: () => import('#/views/reading-plan/list.vue'),
         meta: {
           icon: 'lucide:list',
-          title: 'page.author.list',
+          title: 'page.readingPlan.list',
         },
       },
       {
-        name: 'AuthorCreate',
+        name: 'ReadingPlanCreate',
         path: 'create',
-        component: () => import('#/views/author/create.vue'),
+        component: () => import('#/views/reading-plan/edit.vue'),
         meta: {
           hideInMenu: true,
-          title: 'page.author.create',
+          title: 'page.readingPlan.create',
         },
       },
       {
-        name: 'AuthorEdit',
+        name: 'ReadingPlanEdit',
         path: ':id/edit',
-        component: () => import('#/views/author/edit.vue'),
+        component: () => import('#/views/reading-plan/edit.vue'),
         meta: {
           hideInMenu: true,
-          title: 'page.author.edit',
+          title: 'page.readingPlan.edit',
         },
       },
     ],

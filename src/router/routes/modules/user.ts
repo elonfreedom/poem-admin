@@ -8,10 +8,11 @@ const routes: RouteRecordRaw[] = [
     meta: {
       icon: 'lucide:users',
       order: 5,
-      title: '用户管理',
+      title: 'page.user.title',
     },
     name: 'User',
     path: '/user',
+    redirect: 'list',
     children: [
       {
         name: 'UserList',
@@ -19,7 +20,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/user/list.vue'),
         meta: {
           icon: 'lucide:list',
-          title: '用户列表',
+          title: 'page.user.list',
         },
       },
     ],

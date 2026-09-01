@@ -19,6 +19,8 @@ export interface FrontendUser {
   favorite_count?: number;
   reading_plan_count?: number;
   passkey_count?: number;
+  // 用户参与的阅读计划列表
+  reading_plans?: UserReadingPlan[];
   // 兼容旧格式
   stats?: {
     consecutive_days: number;
@@ -27,6 +29,21 @@ export interface FrontendUser {
     reading_plans_count: number;
     total_checkin_days: number;
   };
+}
+
+/**
+ * 用户参与的阅读计划（嵌套在用户详情中）
+ */
+export interface UserReadingPlan {
+  id: number;
+  title: string;
+  difficulty: string;
+  status: string;
+  progress?: number;
+  total_poems?: number;
+  completed_poems?: number;
+  joined_at?: string;
+  completed_at?: string;
 }
 
 /**
@@ -44,7 +61,7 @@ export interface UserListParams {
  */
 export interface UserListResponse {
   total: number;
-  list: FrontendUser[];
+  items: FrontendUser[];
 }
 
 /**

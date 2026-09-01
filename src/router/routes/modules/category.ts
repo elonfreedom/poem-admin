@@ -8,10 +8,11 @@ const routes: RouteRecordRaw[] = [
     meta: {
       icon: 'lucide:tags',
       order: 20,
-      title: '分类管理',
+      title: 'page.category.title',
     },
     name: 'Category',
     path: '/category',
+    redirect: 'list',
     children: [
       {
         name: 'CategoryList',
@@ -19,7 +20,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/category/list.vue'),
         meta: {
           icon: 'lucide:list',
-          title: '分类列表',
+          title: 'page.category.list',
         },
       },
     ],

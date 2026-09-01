@@ -17,6 +17,7 @@ import {
 import PageHeader from '#/components/PageHeader.vue';
 import { useTable } from '#/composables/useTable';
 import { getCheckinListApi } from '#/api';
+import { formatDateTime } from '#/lib/utils';
 
 /** 搜索筛选 */
 const keyword = ref('');
@@ -98,7 +99,7 @@ function handleReset() {
             <TableCell>{{ row.checkin_date }}</TableCell>
             <TableCell>{{ row.poem_title }}</TableCell>
             <TableCell>{{ row.consecutive_days }}</TableCell>
-            <TableCell>{{ row.created_at }}</TableCell>
+            <TableCell>{{ formatDateTime(row.created_at) }}</TableCell>
           </TableRow>
           <TableRow v-if="data.length === 0">
             <TableCell colspan="5" class="h-32 text-center text-muted-foreground">

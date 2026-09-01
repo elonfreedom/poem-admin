@@ -21,6 +21,7 @@ import PageHeader from '#/components/PageHeader.vue';
 import TableAction from '#/components/TableAction.vue';
 import { useTable } from '#/composables/useTable';
 import { deleteAuthorApi, getAuthorListApi } from '#/api';
+import { formatDateTime } from '#/lib/utils';
 import { toast } from 'vue-sonner';
 
 const router = useRouter();
@@ -113,7 +114,7 @@ function onDelete(row: Author) {
             <TableCell>{{ row.name_traditional || '-' }}</TableCell>
             <TableCell>{{ row.dynasty }}</TableCell>
             <TableCell>{{ row.biography || '-' }}</TableCell>
-            <TableCell>{{ row.created_at }}</TableCell>
+            <TableCell>{{ formatDateTime(row.created_at) }}</TableCell>
             <TableCell class="text-right">
               <TableAction
                 :actions="[

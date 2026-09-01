@@ -8,10 +8,11 @@ const routes: RouteRecordRaw[] = [
     meta: {
       icon: 'lucide:book-open-text',
       order: 10,
-      title: '诗歌管理',
+      title: 'page.poetry.title',
     },
     name: 'Poetry',
     path: '/poetry',
+    redirect: 'list',
     children: [
       {
         name: 'PoetryList',
@@ -19,7 +20,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/poetry/list.vue'),
         meta: {
           icon: 'lucide:list',
-          title: '诗歌列表',
+          title: 'page.poetry.list',
         },
       },
       {
@@ -28,7 +29,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/poetry/create.vue'),
         meta: {
           hideInMenu: true,
-          title: '录入诗歌',
+          title: 'page.poetry.create',
         },
       },
       {
@@ -37,7 +38,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/poetry/batch.vue'),
         meta: {
           hideInMenu: true,
-          title: '批量导入',
+          title: 'page.poetry.batch',
         },
       },
       {
@@ -46,7 +47,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/poetry/edit.vue'),
         meta: {
           hideInMenu: true,
-          title: '编辑诗歌',
+          title: 'page.poetry.edit',
         },
       },
     ],

@@ -6,5 +6,6 @@ export * from './category';
 export * from './checkin';
 export * from './menu';
 export * from './poetry';
+export * from './reading-plan';
 export * from './stats';
 export * from './user';

@@ -2,8 +2,9 @@
 import type { FrontendUser, UserListParams } from '#/api';
 
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { Ban, Eye, UserCheck } from 'lucide-vue-next';
+import { Ban, BookMarked, Eye, UserCheck } from 'lucide-vue-next';
 
 import { Badge } from '#/components/ui/badge';
 import { Button } from '#/components/ui/button';
@@ -38,7 +39,10 @@ import {
   getFrontendUserListApi,
   updateUserStatusApi,
 } from '#/api';
+import { formatDateTime } from '#/lib/utils';
 import { toast } from 'vue-sonner';
+
+const router = useRouter();
 
 // 当前选中的用户
 const selectedUser = ref<FrontendUser | null>(null);
@@ -80,7 +84,7 @@ const { data, refresh, setFilters } = useTable<FrontendUser>({
       status: (status.value || undefined) as UserListParams['status'],
     };
     const result = await getFrontendUserListApi(params);
-    return { items: result.list, total: result.total };
+    return { items: result.items, total: result.total };
   },
   immediate: true,
 });
@@ -133,6 +137,19 @@ function maskEmail(email?: null | string): string {
   if (local.length <= 3) return `${local}***@${domain}`;
   return `${local.slice(0, 3)}***@${domain}`;
 }
+
+/** 跳转到阅读计划页 */
+function goToReadingPlans() {
+  modalVisible.value = false;
+  router.push('/reading-plan/list');
+}
+
+/** 难度标签 */
+const difficultyLabels: Record<string, string> = {
+  beginner: '入门',
+  intermediate: '进阶',
+  advanced: '高级',
+};
 </script>
 
 <template>
@@ -186,7 +203,7 @@ function maskEmail(email?: null | string): string {
                 {{ row.status === 'active' ? '正常' : '已禁用' }}
               </Badge>
             </TableCell>
-            <TableCell>{{ row.created_at }}</TableCell>
+            <TableCell>{{ formatDateTime(row.created_at) }}</TableCell>
             <TableCell class="text-right">
               <TableAction
                 :actions="[
@@ -205,7 +222,7 @@ function maskEmail(email?: null | string): string {
                 align="center" />
             </TableCell>
           </TableRow>
-          <TableRow v-if="data.length === 0">
+          <TableRow v-if="!data || data.length === 0">
             <TableCell colspan="6" class="h-32 text-center text-muted-foreground">
               暂无数据
             </TableCell>
@@ -242,7 +259,7 @@ function maskEmail(email?: null | string): string {
             </div>
             <div>
               <span class="text-muted-foreground">注册时间：</span>
-              {{ selectedUser.created_at }}
+              {{ formatDateTime(selectedUser.created_at) }}
             </div>
           </div>
 
@@ -267,17 +284,60 @@ function maskEmail(email?: null | string): string {
                 </div>
                 <div class="text-xs text-muted-foreground">收藏数</div>
               </div>
-              <div class="rounded-lg bg-muted p-3 text-center">
-                <div class="text-lg font-semibold">
+              <button
+                class="rounded-lg bg-muted p-3 text-center transition-colors hover:bg-muted/80 cursor-pointer"
+                @click="goToReadingPlans">
+                <div class="text-lg font-semibold flex items-center justify-center gap-1">
                   {{ getStats.reading_plans_count }}
+                  <BookMarked class="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
                 <div class="text-xs text-muted-foreground">阅读计划</div>
-              </div>
+              </button>
               <div class="rounded-lg bg-muted p-3 text-center">
                 <div class="text-lg font-semibold">
                   {{ getStats.passkeys_count }}
                 </div>
                 <div class="text-xs text-muted-foreground">Passkey数</div>
+              </div>
+            </div>
+          </template>
+
+          <!-- 用户参与的阅读计划 -->
+          <template v-if="selectedUser?.reading_plans && selectedUser.reading_plans.length > 0">
+            <h4 class="text-sm font-semibold flex items-center gap-2">
+              <BookMarked class="h-4 w-4" />
+              参与的阅读计划
+            </h4>
+            <div class="space-y-2">
+              <div
+                v-for="plan in selectedUser.reading_plans"
+                :key="plan.id"
+                class="flex items-center justify-between rounded-lg border border-border p-3">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium text-sm truncate">{{ plan.title }}</span>
+                    <span class="text-xs text-muted-foreground">
+                      {{ difficultyLabels[plan.difficulty] || plan.difficulty }}
+                    </span>
+                  </div>
+                  <div v-if="plan.completed_poems !== undefined && plan.total_poems" class="mt-1">
+                    <div class="flex items-center gap-2">
+                      <div class="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          class="h-full rounded-full bg-primary transition-all"
+                          :style="{ width: `${Math.round((plan.completed_poems / plan.total_poems) * 100)}%` }" />
+                      </div>
+                      <span class="text-xs text-muted-foreground whitespace-nowrap">
+                        {{ plan.completed_poems }}/{{ plan.total_poems }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <Badge
+                  :variant="plan.status === 'completed' ? 'default' : 'secondary'"
+                  class="ml-3 whitespace-nowrap">
+                  {{ plan.status === 'completed' ? '已完成' : '进行中' }}
+                </Badge>
               </div>
             </div>
           </template>

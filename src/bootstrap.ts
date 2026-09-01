@@ -13,7 +13,7 @@ async function bootstrap() {
   const app = createApp(App);
 
   // 全局错误处理器 - 捕获路由切换时的组件卸载错误
-  app.config.errorHandler = (err, instance, info) => {
+  app.config.errorHandler = (err, _instance, info) => {
     // 忽略路由切换时的 null type 错误（已知的 Vue 3 问题）
     if (err instanceof TypeError && err.message.includes('Cannot read properties of null')) {
       console.warn('[Vue Error] Ignored during route transition:', err.message);

@@ -62,6 +62,13 @@ const menuItems = ref([
     ],
   },
   {
+    key: '/reading-plan',
+    label: '阅读计划',
+    icon: 'BookMarked',
+    group: '内容管理',
+    children: [{ key: '/reading-plan/list', label: '计划列表' }],
+  },
+  {
     key: '/category',
     label: '分类管理',
     icon: 'FolderOutlined',

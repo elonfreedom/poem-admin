@@ -38,6 +38,7 @@ import {
   updatePoetryApi,
 } from '#/api';
 import type { AuthorOption } from '#/api/core/author';
+import { formatDateTime } from '#/lib/utils';
 import { toast } from 'vue-sonner';
 
 const route = useRoute();
@@ -299,11 +300,11 @@ onMounted(fetchDetail);
             </div>
             <div class="flex items-center gap-2">
               <span class="text-muted-foreground">创建时间</span>
-              <span>{{ detail.created_at || '-' }}</span>
+              <span>{{ formatDateTime(detail.created_at) }}</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-muted-foreground">更新时间</span>
-              <span>{{ detail.updated_at || '-' }}</span>
+              <span>{{ formatDateTime(detail.updated_at) }}</span>
             </div>
           </div>
         </CardContent>

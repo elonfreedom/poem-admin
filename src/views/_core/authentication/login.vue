@@ -145,7 +145,7 @@ onMounted(() => {
       <label class="checkbox-wrap">
         <Checkbox
           id="remember"
-          v-model:checked="rememberMe"
+          v-model="rememberMe"
           class="hidden"
         />
         <span class="checkbox-visual" :class="rememberMe ? 'checked' : ''">

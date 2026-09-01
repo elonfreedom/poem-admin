@@ -8,10 +8,11 @@ const routes: RouteRecordRaw[] = [
     meta: {
       icon: 'lucide:settings',
       order: 30,
-      title: '系统配置',
+      title: 'page.system.title',
     },
     name: 'System',
     path: '/system',
+    redirect: 'banner',
     children: [
       {
         name: 'BannerList',
@@ -19,7 +20,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/system/banner.vue'),
         meta: {
           icon: 'lucide:image',
-          title: 'Banner 管理',
+          title: 'page.system.banner',
         },
       },
       {
@@ -28,7 +29,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/system/announcement.vue'),
         meta: {
           icon: 'lucide:megaphone',
-          title: '公告管理',
+          title: 'page.system.announcement',
         },
       },
     ],

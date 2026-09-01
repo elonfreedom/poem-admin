@@ -22,7 +22,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/dashboard/overview.vue'),
         meta: {
           icon: 'lucide:chart-area',
-          title: '数据总览',
+          title: 'page.dashboard.title',
         },
       },
     ],

@@ -8,10 +8,11 @@ const routes: RouteRecordRaw[] = [
     meta: {
       icon: 'lucide:calendar-check',
       order: 6,
-      title: '打卡管理',
+      title: 'page.checkin.title',
     },
     name: 'Checkin',
     path: '/checkin',
+    redirect: 'list',
     children: [
       {
         name: 'CheckinList',
@@ -19,7 +20,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/checkin/list.vue'),
         meta: {
           icon: 'lucide:list',
-          title: '打卡记录',
+          title: 'page.checkin.list',
         },
       },
       {
@@ -28,7 +29,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/checkin/stats.vue'),
         meta: {
           icon: 'lucide:chart-bar',
-          title: '数据统计',
+          title: 'page.checkin.stats',
         },
       },
     ],

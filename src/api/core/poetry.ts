@@ -156,3 +156,24 @@ export async function batchMatchAuthorsApi(poetryIds?: number[]) {
     { poetry_ids: poetryIds ?? [] },
   );
 }
+
+/** 字符类型 */
+export type CharsType = 'simplified' | 'traditional' | 'mixed' | 'no_diff' | 'unknown';
+
+/** 检测字符类型 */
+export async function detectCharsTypeApi(text: string) {
+  return requestClient.post<CharsType>('/tools/detect-chars-type', { text });
+}
+
+/** 转换字符 */
+export async function convertCharsApi(text: string, target: 'simplified' | 'traditional') {
+  return requestClient.post<string>('/tools/convert-chars', { text, target });
+}
+
+/** 批量转换字符（按诗歌 ID） */
+export async function batchConvertCharsApi(poetryIds: number[], target: 'simplified' | 'traditional') {
+  return requestClient.post<BatchConvertResult>('/tools/batch-convert-chars', {
+    poetry_ids: poetryIds,
+    target,
+  });
+}

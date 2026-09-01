@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import {
+  BookMarked,
   BookOpen,
   CalendarCheck,
   ChevronDown,
@@ -42,6 +43,7 @@ const router = useRouter();
 const iconMap: Record<string, any> = {
   'DashboardOutlined': LayoutDashboard,
   'BookOutlined': BookOpen,
+  'BookMarked': BookMarked,
   'UserOutlined': Users,
   'FolderOutlined': FolderOpen,
   'TagsOutlined': Tags,
@@ -96,13 +98,23 @@ function isActive(key: string): boolean {
   return route.path === key || route.path.startsWith(key + '/');
 }
 
+/**
+ * 父菜单点击交互：
+ * - 已展开 → 收起
+ * - 未展开 → 直接导航到第一个子项（默认页面）
+ */
 function toggleSubMenu(key: string) {
   if (props.collapsed) return;
   const index = openKeys.value.indexOf(key);
   if (index > -1) {
     openKeys.value.splice(index, 1);
   } else {
-    openKeys.value.push(key);
+    // 未展开时，直接导航到第一个子菜单项
+    const menuItem = props.menuItems?.find((item) => item.key === key);
+    const firstChild = menuItem?.children?.[0];
+    if (firstChild) {
+      router.push(firstChild.key);
+    }
   }
 }
 
