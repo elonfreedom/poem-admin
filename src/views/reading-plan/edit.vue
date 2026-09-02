@@ -451,7 +451,7 @@ onMounted(() => {
                       type="checkbox"
                       :checked="isPoemSelected(poem.id)"
                       class="h-4 w-4 rounded border-border"
-                      @click.stop />
+                      @click.stop="togglePoem(poem)" />
                   </TableCell>
                   <TableCell class="font-medium">{{ poem.title }}</TableCell>
                   <TableCell>{{ poem.author || '-' }}</TableCell>
