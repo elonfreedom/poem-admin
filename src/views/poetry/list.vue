@@ -428,18 +428,18 @@ function truncate(text: string, len: number): string {
               <TableCell class="text-muted-foreground">{{ row.id }}</TableCell>
               <TableCell>
                 <div class="max-w-[280px]">
-                  <div class="font-medium truncate" :title="row.title">
-                    {{ row.title }}
+                  <div class="font-medium truncate" :title="row.title_sc || row.title">
+                    {{ row.title_sc || row.title }}
                   </div>
                   <div
-                    v-if="row.content"
+                    v-if="row.content_sc || row.content"
                     class="mt-0.5 text-xs text-muted-foreground truncate"
-                    :title="row.content">
-                    {{ truncate(row.content.replace(/\n/g, ' '), 40) }}
+                    :title="row.content_sc || row.content">
+                    {{ truncate((row.content_sc || row.content).replace(/\n/g, ' '), 40) }}
                   </div>
                 </div>
               </TableCell>
-              <TableCell>{{ row.author || '-' }}</TableCell>
+              <TableCell>{{ row.author_sc || row.author || '-' }}</TableCell>
               <TableCell>
                 <span v-if="row.dynasty" class="dynasty-tag">{{ row.dynasty }}</span>
                 <span v-else class="text-muted-foreground">-</span>
@@ -543,7 +543,7 @@ function truncate(text: string, len: number): string {
         <DialogHeader>
           <DialogTitle class="flex items-center gap-2">
             <BookOpen class="h-5 w-5" />
-            {{ viewDetail.title }}
+            {{ viewDetail.title_sc || viewDetail.title }}
           </DialogTitle>
         </DialogHeader>
         <div class="space-y-4">
@@ -553,7 +553,7 @@ function truncate(text: string, len: number): string {
               <Calendar class="h-4 w-4" />
               {{ viewDetail.dynasty || '未知朝代' }}
             </span>
-            <span>{{ viewDetail.author || '佚名' }}</span>
+            <span>{{ viewDetail.author_sc || viewDetail.author || '佚名' }}</span>
             <Badge :variant="statusVariant[viewDetail.status] as any">
               {{ statusLabels[viewDetail.status] || viewDetail.status }}
             </Badge>
@@ -562,7 +562,7 @@ function truncate(text: string, len: number): string {
           <div class="space-y-2">
             <h4 class="text-sm font-medium text-muted-foreground">诗词内容</h4>
             <div class="poetry-content">
-              {{ viewDetail.content }}
+              {{ viewDetail.content_sc || viewDetail.content }}
             </div>
           </div>
           <!-- 翻译 -->

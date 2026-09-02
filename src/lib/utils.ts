@@ -220,6 +220,33 @@ function formatRelativeTime(value: string | undefined | null): string {
 
 // ==================== 通用判断 ====================
 
+// ==================== 文件下载 ====================
+
+/**
+ * 下载 Blob 为文件
+ */
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * 下载 CSV 字符串为文件（自动添加 BOM 以支持中文 Excel 打开）
+ */
+function downloadCsv(csv: string, filename: string): void {
+  const bom = '﻿';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  downloadBlob(blob, filename);
+}
+
+// ==================== 通用判断 ====================
+
 /**
  * 判断值是否为空（null/undefined/空字符串/空数组）
  */
@@ -241,6 +268,8 @@ function isEmpty(value: unknown): boolean {
 
 export {
   cn,
+  downloadBlob,
+  downloadCsv,
   formatDate,
   formatDateTime,
   formatRelativeTime,

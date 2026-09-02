@@ -16,10 +16,10 @@ import {
   FileSpreadsheet,
   FileText,
   FileX2,
+  History,
   Info,
   Plus,
   RotateCcw,
-  Upload,
   X,
 } from 'lucide-vue-next';
 
@@ -50,7 +50,6 @@ import {
 import PageHeader from '#/components/PageHeader.vue';
 import {
   batchConvertCharsApi,
-  convertCharsApi,
   detectCharsTypeApi,
   importPoetryApi,
   type ImportPoetryPayload,
@@ -117,6 +116,9 @@ const defaultMappingCandidates: Record<string, string[]> = {
 // ============================================================
 // 状态
 // ============================================================
+
+/** 单次导入上限 */
+const MAX_IMPORT_COUNT = 5000;
 
 /** 当前步骤 */
 const currentStep = ref<Step>('upload');
@@ -231,6 +233,15 @@ async function parseFile(file: File) {
       parseCsv(text);
     } else {
       parseErrors.value = ['不支持的文件格式，请上传 JSON 或 CSV 文件'];
+    }
+
+    // 校验数量上限
+    if (rawPoems.value.length > MAX_IMPORT_COUNT) {
+      parseErrors.value = [
+        `单次导入上限为 ${MAX_IMPORT_COUNT.toLocaleString()} 首，当前文件包含 ${rawPoems.value.length.toLocaleString()} 首，请拆分后分批导入`,
+      ];
+      rawPoems.value = [];
+      return;
     }
 
     if (rawPoems.value.length > 0) {
@@ -413,7 +424,7 @@ async function autoDetectCharsType() {
 }
 
 /** 获取有效的字符类型（用户手动指定优先于自动检测） */
-function getEffectiveCharsType(): 'simplified' | 'traditional' | null {
+function getEffectiveCharsType(): CharsType | null {
   return manualCharsType.value || detectedCharsType.value || null;
 }
 
@@ -495,8 +506,19 @@ async function handleBatchImport() {
     } else {
       currentStep.value = 'result';
     }
-  } catch {
-    toast.error('导入失败，请重试');
+  } catch (err: any) {
+    // 区分超时和其他错误
+    const isTimeout =
+      err?.code === 'ECONNABORTED' ||
+      err?.message?.includes('timeout') ||
+      err?.message?.includes('Network Error');
+    if (isTimeout) {
+      toast.error('导入超时，部分数据可能已导入，请查看导入记录确认', {
+        duration: 6000,
+      });
+    } else {
+      toast.error(`导入失败：${err?.message || '请重试'}`);
+    }
   } finally {
     importing.value = false;
   }
@@ -518,7 +540,7 @@ async function autoConvertChars(ids: number[]) {
       target = 'traditional';
     }
 
-    if (!target) {
+    if (!target || !effectiveType) {
       // mixed / no_diff / unknown 不需要转换
       return;
     }
@@ -836,6 +858,10 @@ function formatPreview(value: unknown, maxLen = 40): string {
             <span class="flex items-center gap-1">
               <FileSpreadsheet class="h-3.5 w-3.5" />
               .csv
+            </span>
+            <span class="flex items-center gap-1">
+              <Info class="h-3.5 w-3.5" />
+              单次最多 {{ MAX_IMPORT_COUNT.toLocaleString() }} 首
             </span>
           </div>
         </div>
@@ -1170,7 +1196,7 @@ function formatPreview(value: unknown, maxLen = 40): string {
             <Select
               :model-value="manualCharsType || detectedCharsType || NONE_MAPPING"
               @update:model-value="
-                manualCharsType = $event === NONE_MAPPING ? null : $event
+                manualCharsType = $event === NONE_MAPPING ? null : ($event as 'simplified' | 'traditional')
               "
             >
               <SelectTrigger class="w-32 h-8">
@@ -1440,6 +1466,10 @@ function formatPreview(value: unknown, maxLen = 40): string {
           <Button variant="outline" @click="resetBatch">
             <Plus class="mr-2 h-4 w-4" />
             继续导入
+          </Button>
+          <Button variant="outline" @click="router.push('/poetry/import-records')">
+            <History class="mr-2 h-4 w-4" />
+            查看导入记录
           </Button>
           <Button @click="router.push('/poetry/list')">
             <FileText class="mr-2 h-4 w-4" />

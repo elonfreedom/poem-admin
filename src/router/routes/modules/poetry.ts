@@ -50,6 +50,15 @@ const routes: RouteRecordRaw[] = [
           title: 'page.poetry.edit',
         },
       },
+      {
+        name: 'PoetryImportRecords',
+        path: 'import-records',
+        component: () => import('#/views/poetry/import-records.vue'),
+        meta: {
+          icon: 'lucide:history',
+          title: 'page.poetry.importRecords',
+        },
+      },
     ],
   },
 ];

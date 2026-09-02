@@ -53,7 +53,7 @@ export class RequestClient {
 
   constructor(config?: AxiosRequestConfig) {
     this.instance = axios.create({
-      timeout: 30_000,
+      timeout: 180_000,
       headers: { 'Content-Type': 'application/json' },
       ...config,
     });

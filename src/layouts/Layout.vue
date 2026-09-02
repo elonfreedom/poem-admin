@@ -49,6 +49,7 @@ const menuItems = ref([
       { key: '/poetry/list', label: '诗歌列表' },
       { key: '/poetry/create', label: '创建诗歌' },
       { key: '/poetry/batch', label: '批量导入' },
+      { key: '/poetry/import-records', label: '导入记录' },
     ],
   },
   {

@@ -105,7 +105,10 @@ export interface ImportResult {
   total: number;
   success: number;
   failed: number;
+  skipped?: number;
+  ids?: number[];
   errors: ImportError[];
+  record_id?: number;
 }
 
 export interface ImportPoetryPayload {
@@ -176,4 +179,65 @@ export async function batchConvertCharsApi(poetryIds: number[], target: 'simplif
     poetry_ids: poetryIds,
     target,
   });
+}
+
+// ============================================================
+// 导入记录
+// ============================================================
+
+/** 导入记录状态 */
+export type ImportRecordStatus = 'processing' | 'success' | 'partial' | 'failed';
+
+/** 导入记录 */
+export interface ImportRecord {
+  id: number;
+  file_name: string | null;
+  source: string | null;
+  total: number;
+  processed: number;
+  success: number;
+  failed: number;
+  status: ImportRecordStatus;
+  created_at: string;
+  created_by?: string;
+  errors: ImportError[];
+}
+
+/** 导入记录列表查询参数 */
+export interface ImportRecordListParams {
+  page?: number;
+  page_size?: number;
+  status?: ImportRecordStatus;
+  start_date?: string;
+  end_date?: string;
+}
+
+/** 导入记录列表响应 */
+export interface ImportRecordListResponse {
+  items: ImportRecord[];
+  total: number;
+}
+
+/** 导入统计 */
+export interface ImportStats {
+  total_imports: number;
+  total_poems: number;
+  total_success: number;
+  total_failed: number;
+  success_rate: number;
+}
+
+/** 获取导入记录列表 */
+export async function getImportRecordsApi(params: ImportRecordListParams) {
+  return requestClient.get<ImportRecordListResponse>('/poems/import-records', { params });
+}
+
+/** 获取导入记录详情 */
+export async function getImportRecordDetailApi(id: number) {
+  return requestClient.get<ImportRecord>(`/poems/import-records/${id}`);
+}
+
+/** 获取导入统计 */
+export async function getImportStatsApi(params?: { start_date?: string; end_date?: string; status?: ImportRecordStatus }) {
+  return requestClient.get<ImportStats>('/poems/import-records/stats', { params });
 }
