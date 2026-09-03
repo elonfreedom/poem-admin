@@ -30,6 +30,7 @@ export interface PoetryListParams {
   page?: number;
   page_size?: number;
   keyword?: string;
+  search_scope?: 'title' | 'author';
   category_id?: number;
   status?: string;
   dynasty?: string;

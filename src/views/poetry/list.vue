@@ -101,8 +101,18 @@ const dynastyOptions = [
   { label: '未知', value: '未知' },
 ];
 
+/** 搜索类型 */
+type SearchScope = 'all' | 'title' | 'author';
+
+const searchScopeOptions: { label: string; value: SearchScope }[] = [
+  { label: '全部', value: 'all' },
+  { label: '标题', value: 'title' },
+  { label: '作者', value: 'author' },
+];
+
 /** 搜索筛选 */
 const keyword = ref('');
+const searchScope = ref<SearchScope>('all');
 const dynasty = ref<string>('');
 const status = ref<string>('');
 
@@ -116,6 +126,7 @@ const { data, loading, pagination, refresh, setFilters } = useTable<Poetry>({
       page,
       page_size: pageSize,
       keyword: keyword.value || undefined,
+      search_scope: searchScope.value === 'all' ? undefined : searchScope.value,
       dynasty: dynasty.value === '__all__' ? undefined : dynasty.value,
       status: status.value === '__all__' ? undefined : status.value,
     };
@@ -158,6 +169,16 @@ function isRowSelected(row: Poetry): boolean {
   return selectedRowKeys.value.includes(row.id);
 }
 
+/** 搜索框 placeholder */
+const searchPlaceholder = computed(() => {
+  const map: Record<SearchScope, string> = {
+    all: '搜索标题或作者...',
+    title: '搜索标题...',
+    author: '搜索作者...',
+  };
+  return map[searchScope.value];
+});
+
 /** 搜索 */
 function handleSearch() {
   setFilters({});
@@ -166,6 +187,7 @@ function handleSearch() {
 /** 重置筛选 */
 function handleReset() {
   keyword.value = '';
+  searchScope.value = 'all';
   dynasty.value = '__all__';
   status.value = '__all__';
   selectedRowKeys.value = [];
@@ -277,6 +299,7 @@ async function loadListData() {
     page: pagination.value.current,
     page_size: pagination.value.pageSize,
     keyword: keyword.value || undefined,
+    search_scope: searchScope.value === 'all' ? undefined : searchScope.value,
     dynasty: dynasty.value || undefined,
     status: status.value || undefined,
   };
@@ -315,13 +338,30 @@ function truncate(text: string, len: number): string {
     <!-- 筛选栏 -->
     <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div class="flex flex-wrap items-center gap-3">
-        <div class="search-wrap">
-          <Search class="search-icon" />
-          <Input
-            v-model="keyword"
-            placeholder="搜索标题或作者..."
-            class="search-input"
-            @keyup.enter="handleSearch" />
+        <div class="flex items-center gap-2">
+          <div class="search-wrap">
+            <Search class="search-icon" />
+            <Input
+              v-model="keyword"
+              :placeholder="searchPlaceholder"
+              class="search-input"
+              @keyup.enter="handleSearch" />
+          </div>
+          <div class="search-scope-group">
+            <button
+              v-for="opt in searchScopeOptions"
+              :key="opt.value"
+              type="button"
+              class="search-scope-btn"
+              :class="{ active: searchScope === opt.value }"
+              @click="searchScope = opt.value">
+              {{ opt.label }}
+            </button>
+          </div>
+          <Button size="sm" class="h-9" @click="handleSearch">
+            <Search class="mr-1.5 h-3.5 w-3.5" />
+            搜索
+          </Button>
         </div>
         <Select v-model="dynasty">
           <SelectTrigger class="w-28">
@@ -605,6 +645,35 @@ function truncate(text: string, len: number): string {
 
 .search-input {
   padding-left: 34px;
+}
+
+/* ===== 搜索范围切换 ===== */
+.search-scope-group {
+  display: inline-flex;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.search-scope-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-muted-foreground, oklch(0.55 0.005 60));
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.search-scope-btn:hover {
+  background: oklch(0.97 0.005 80 / 0.5);
+}
+
+.search-scope-btn.active {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, oklch(0.98 0.005 80));
 }
 
 /* ===== 朝代标签 ===== */
