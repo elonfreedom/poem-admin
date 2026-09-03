@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useRouter } from 'vue-router';
 
-import { ArrowLeft, BookOpen, Link, Type } from 'lucide-vue-next';
+import { ArrowLeft, BookOpen, CopyX, Link, Type } from 'lucide-vue-next';
 
 import { Button } from '#/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card';
@@ -58,7 +58,20 @@ async function onBatchConvert() {
   });
 }
 
+// 诗文去重跳转
+function onDedup() {
+  router.push('/tools/dedup');
+}
+
 const tools = [
+  {
+    icon: CopyX,
+    title: '诗文去重',
+    description:
+      '扫描重复诗文（标题/作者/内容匹配），分组对比后批量归档或删除多余项。',
+    onClick: onDedup,
+    buttonText: '开始去重',
+  },
   {
     icon: BookOpen,
     title: '从诗歌提取作者',
@@ -121,6 +134,9 @@ const tools = [
       </CardHeader>
       <CardContent>
         <ol class="list-inside list-decimal space-y-2 text-sm">
+          <li>
+            <strong>诗文去重</strong>：扫描重复诗文，分组对比后批量归档或删除
+          </li>
           <li>
             <strong>提取作者</strong>：从现有诗歌中提取不重复的作者名，自动创建到作者库
           </li>

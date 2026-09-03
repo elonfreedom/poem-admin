@@ -242,3 +242,58 @@ export async function getImportRecordDetailApi(id: number) {
 export async function getImportStatsApi(params?: { start_date?: string; end_date?: string; status?: ImportRecordStatus }) {
   return requestClient.get<ImportStats>('/poems/import-records/stats', { params });
 }
+
+// ============================================================
+// 诗文去重工具
+// ============================================================
+
+/** 去重扫描参数 */
+export interface DedupScanParams {
+  match_fields: ('title' | 'author' | 'content')[];
+  status_filter?: string;
+  dynasty_filter?: string;
+  page?: number;
+  page_size?: number;
+}
+
+/** 去重组 */
+export interface DedupGroup {
+  group_id: string;
+  match_reason: string;
+  match_key: string;
+  poems: Poetry[];
+  recommended_keep_id: number;
+}
+
+/** 去重扫描结果 */
+export interface DedupScanResult {
+  total_scanned: number;
+  total_groups: number;
+  total_duplicates: number;
+  page: number;
+  page_size: number;
+  groups: DedupGroup[];
+}
+
+/** 去重执行参数 */
+export interface DedupExecuteParams {
+  archive_ids: number[];
+  delete_ids: number[];
+}
+
+/** 去重执行结果 */
+export interface DedupExecuteResult {
+  archived: number;
+  deleted: number;
+  message: string;
+}
+
+/** 扫描重复诗文 */
+export function scanDuplicatesApi(params: DedupScanParams) {
+  return requestClient.post<DedupScanResult>('/tools/dedup/scan', params);
+}
+
+/** 执行去重（归档/删除） */
+export function executeDedupApi(params: DedupExecuteParams) {
+  return requestClient.post<DedupExecuteResult>('/tools/dedup/execute', params);
+}
