@@ -157,31 +157,31 @@ function onDelete(row: Author) {
       <Table>
         <TableHeader>
           <TableRow class="bg-muted/50">
-            <TableHead class="w-[80px] cursor-pointer select-none" @click="handleSort('id')">
+            <TableHead class="w-[80px] cursor-pointer select-none hover:bg-muted/50" @click="handleSort('id')">
               <span class="inline-flex items-center gap-1">
                 ID
-                <component :is="sortIcon('id')" class="h-3.5 w-3.5" :class="sortField === 'id' ? 'text-primary' : 'text-muted-foreground/50'" />
+                <component :is="sortIcon('id')" class="h-3.5 w-3.5" :class="sortField === 'id' ? 'text-primary' : 'text-muted-foreground'" />
               </span>
             </TableHead>
-            <TableHead class="w-[120px] cursor-pointer select-none" @click="handleSort('name')">
+            <TableHead class="w-[120px] cursor-pointer select-none hover:bg-muted/50" @click="handleSort('name')">
               <span class="inline-flex items-center gap-1">
                 姓名
-                <component :is="sortIcon('name')" class="h-3.5 w-3.5" :class="sortField === 'name' ? 'text-primary' : 'text-muted-foreground/50'" />
+                <component :is="sortIcon('name')" class="h-3.5 w-3.5" :class="sortField === 'name' ? 'text-primary' : 'text-muted-foreground'" />
               </span>
             </TableHead>
             <TableHead class="w-[120px]">繁体</TableHead>
             <TableHead class="w-[100px]">朝代</TableHead>
-            <TableHead class="w-[100px] cursor-pointer select-none" @click="handleSort('poem_count')">
+            <TableHead class="w-[100px] cursor-pointer select-none hover:bg-muted/50" @click="handleSort('poem_count')">
               <span class="inline-flex items-center gap-1">
                 诗歌数
-                <component :is="sortIcon('poem_count')" class="h-3.5 w-3.5" :class="sortField === 'poem_count' ? 'text-primary' : 'text-muted-foreground/50'" />
+                <component :is="sortIcon('poem_count')" class="h-3.5 w-3.5" :class="sortField === 'poem_count' ? 'text-primary' : 'text-muted-foreground'" />
               </span>
             </TableHead>
             <TableHead>简介</TableHead>
-            <TableHead class="w-[180px] cursor-pointer select-none" @click="handleSort('created_at')">
+            <TableHead class="w-[180px] cursor-pointer select-none hover:bg-muted/50" @click="handleSort('created_at')">
               <span class="inline-flex items-center gap-1">
                 创建时间
-                <component :is="sortIcon('created_at')" class="h-3.5 w-3.5" :class="sortField === 'created_at' ? 'text-primary' : 'text-muted-foreground/50'" />
+                <component :is="sortIcon('created_at')" class="h-3.5 w-3.5" :class="sortField === 'created_at' ? 'text-primary' : 'text-muted-foreground'" />
               </span>
             </TableHead>
             <TableHead class="w-[150px] text-right">操作</TableHead>
