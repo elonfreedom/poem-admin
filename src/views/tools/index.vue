@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useRouter } from 'vue-router';
 
-import { ArrowLeft, BookOpen, CopyX, Eraser, Link, Type, Users } from 'lucide-vue-next';
+import { ArrowLeft, BookOpen, CopyX, Eraser, Link, Languages, Type, Users } from 'lucide-vue-next';
 
 import { Button } from '#/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card';
@@ -12,6 +12,7 @@ import {
   batchMatchAuthorsApi,
   cleanupAuthorNamesApi,
   cleanupAuthorNamesScApi,
+  convertAuthorNamesTraditionalApi,
   generateAuthorsApi,
 } from '#/api';
 import { toast } from 'vue-sonner';
@@ -91,6 +92,19 @@ function onCleanupAuthorNamesSc() {
   });
 }
 
+// 作者姓名转简体→繁体
+function onConvertAuthorNamesTraditional() {
+  if (!confirm('将所有作者的 name（简体）转为繁体，写入 name_traditional 字段。已有繁体名的将被覆盖。')) {
+    return;
+  }
+  const promise = convertAuthorNamesTraditionalApi();
+  toast.promise(promise, {
+    loading: '正在转换...',
+    success: (result: any) => result.message || `转换完成：已处理 ${result.processed} 个作者`,
+    error: '转换失败',
+  });
+}
+
 const tools = [
   {
     icon: CopyX,
@@ -123,6 +137,14 @@ const tools = [
       '将 name 中的繁体字转为简体，原值保留为 name_traditional。',
     onClick: onCleanupAuthorNamesSc,
     buttonText: '开始处理',
+  },
+  {
+    icon: Languages,
+    title: '作者姓名转繁体',
+    description:
+      '将所有作者的 name（简体）转为繁体，写入 name_traditional 字段。',
+    onClick: onConvertAuthorNamesTraditional,
+    buttonText: '开始转换',
   },
   {
     icon: BookOpen,

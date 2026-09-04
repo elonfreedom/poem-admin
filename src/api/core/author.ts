@@ -125,3 +125,8 @@ export function cleanupAuthorNamesApi() {
 export function cleanupAuthorNamesScApi() {
   return requestClient.post<CleanupAuthorNamesResult>('/tools/cleanup-author-names-sc');
 }
+
+/** 作者姓名转繁体（name → name_traditional） */
+export function convertAuthorNamesTraditionalApi() {
+  return requestClient.post<CleanupAuthorNamesResult>('/tools/convert-author-names-traditional');
+}
