@@ -15,6 +15,8 @@ export interface AuthorListParams {
   page?: number;
   page_size?: number;
   keyword?: string;
+  sort_field?: 'id' | 'name' | 'poem_count' | 'created_at';
+  sort_order?: 'asc' | 'desc';
 }
 
 export interface AuthorListResponse {

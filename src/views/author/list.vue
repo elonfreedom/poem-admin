@@ -4,7 +4,7 @@ import type { Author, AuthorListParams } from '#/api';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { Pencil, Plus, Trash2 } from 'lucide-vue-next';
+import { ArrowDown, ArrowDownUp, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-vue-next';
 
 import { Button } from '#/components/ui/button';
 import { Input } from '#/components/ui/input';
@@ -30,6 +30,13 @@ const router = useRouter();
 /** 搜索筛选 */
 const keyword = ref('');
 
+/** 排序状态 */
+type SortField = 'poem_count' | 'created_at' | 'id' | 'name';
+type SortOrder = 'asc' | 'desc';
+
+const sortField = ref<SortField | null>(null);
+const sortOrder = ref<SortOrder>('desc');
+
 /** 表格数据 */
 const { data, loading, pagination, refresh, setFilters } = useTable<Author>({
   fetchData: async ({ page, pageSize }) => {
@@ -37,11 +44,29 @@ const { data, loading, pagination, refresh, setFilters } = useTable<Author>({
       page,
       page_size: pageSize,
       keyword: keyword.value || undefined,
+      ...(sortField.value && { sort_field: sortField.value, sort_order: sortOrder.value }),
     };
     return await getAuthorListApi(params);
   },
   immediate: true,
 });
+
+/** 点击表头排序 */
+function handleSort(field: SortField) {
+  if (sortField.value === field) {
+    // 同一字段：升 → 降 → 取消
+    if (sortOrder.value === 'asc') {
+      sortOrder.value = 'desc';
+    } else {
+      sortField.value = null;
+      sortOrder.value = 'desc';
+    }
+  } else {
+    sortField.value = field;
+    sortOrder.value = 'asc';
+  }
+  refresh();
+}
 
 /** 搜索 */
 function handleSearch() {
@@ -51,7 +76,15 @@ function handleSearch() {
 /** 重置筛选 */
 function handleReset() {
   keyword.value = '';
+  sortField.value = null;
+  sortOrder.value = 'desc';
   setFilters({});
+}
+
+/** 排序图标 */
+function sortIcon(field: SortField) {
+  if (sortField.value !== field) return ArrowDownUp;
+  return sortOrder.value === 'asc' ? ArrowUp : ArrowDown;
 }
 
 /** 分页变化 */
@@ -124,13 +157,33 @@ function onDelete(row: Author) {
       <Table>
         <TableHeader>
           <TableRow class="bg-muted/50">
-            <TableHead class="w-[80px]">ID</TableHead>
-            <TableHead class="w-[120px]">姓名</TableHead>
+            <TableHead class="w-[80px] cursor-pointer select-none" @click="handleSort('id')">
+              <span class="inline-flex items-center gap-1">
+                ID
+                <component :is="sortIcon('id')" class="h-3.5 w-3.5" :class="sortField === 'id' ? 'text-primary' : 'text-muted-foreground/50'" />
+              </span>
+            </TableHead>
+            <TableHead class="w-[120px] cursor-pointer select-none" @click="handleSort('name')">
+              <span class="inline-flex items-center gap-1">
+                姓名
+                <component :is="sortIcon('name')" class="h-3.5 w-3.5" :class="sortField === 'name' ? 'text-primary' : 'text-muted-foreground/50'" />
+              </span>
+            </TableHead>
             <TableHead class="w-[120px]">繁体</TableHead>
             <TableHead class="w-[100px]">朝代</TableHead>
-            <TableHead class="w-[80px]">诗歌数</TableHead>
+            <TableHead class="w-[100px] cursor-pointer select-none" @click="handleSort('poem_count')">
+              <span class="inline-flex items-center gap-1">
+                诗歌数
+                <component :is="sortIcon('poem_count')" class="h-3.5 w-3.5" :class="sortField === 'poem_count' ? 'text-primary' : 'text-muted-foreground/50'" />
+              </span>
+            </TableHead>
             <TableHead>简介</TableHead>
-            <TableHead class="w-[180px]">创建时间</TableHead>
+            <TableHead class="w-[180px] cursor-pointer select-none" @click="handleSort('created_at')">
+              <span class="inline-flex items-center gap-1">
+                创建时间
+                <component :is="sortIcon('created_at')" class="h-3.5 w-3.5" :class="sortField === 'created_at' ? 'text-primary' : 'text-muted-foreground/50'" />
+              </span>
+            </TableHead>
             <TableHead class="w-[150px] text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
