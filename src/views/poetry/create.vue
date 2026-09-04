@@ -21,6 +21,7 @@ import { Textarea } from '#/components/ui/textarea';
 
 import PageHeader from '#/components/PageHeader.vue';
 import InputWithPinyin from '#/components/InputWithPinyin.vue';
+import AuthorSelect from '#/components/AuthorSelect.vue';
 import { createPoetryApi } from '#/api';
 import type { AuthorOption } from '#/api/core/author';
 import { toast } from 'vue-sonner';
@@ -39,7 +40,6 @@ const titleSc = ref('');
 const contentSc = ref('');
 
 // 作者相关
-const authorOptions = ref<AuthorOption[]>([]);
 const selectedAuthorId = ref<number | undefined>(undefined);
 const authorText = ref('');
 
@@ -67,29 +67,17 @@ const statusOptions = [
 ];
 
 // 选择作者
-function handleAuthorSelect(value: any) {
-  selectedAuthorId.value = value as number | undefined;
-  if (value) {
-    const author = authorOptions.value.find((a) => a.id === value);
-    if (author) {
-      authorText.value = author.name;
-      formData.value.author = author.name;
-      formData.value.dynasty = author.dynasty;
-    }
-  }
+function handleAuthorSelect(author: AuthorOption) {
+  selectedAuthorId.value = author.id;
+  authorText.value = author.name;
+  formData.value.author = author.name;
+  formData.value.dynasty = author.dynasty;
 }
 
-// 作者文本变化
-function handleAuthorTextChange(value: string) {
-  authorText.value = value;
-  formData.value.author = value;
-  if (value && selectedAuthorId.value) {
-    const author = authorOptions.value.find(
-      (a) => a.id === selectedAuthorId.value,
-    );
-    if (author && author.name !== value) {
-      selectedAuthorId.value = undefined;
-    }
+// 作者 ID 变化（清空时）
+function handleAuthorIdChange(value: number | undefined) {
+  if (!value) {
+    selectedAuthorId.value = undefined;
   }
 }
 
@@ -170,44 +158,29 @@ async function handleSubmit() {
             </p>
           </div>
 
-          <!-- 作者（搜索选择 + 手动输入） -->
+          <!-- 作者（搜索选择） -->
           <div class="space-y-2">
-            <Label for="author">
+            <Label>
               作者 <span class="text-destructive">*</span>
             </Label>
-            <Select :model-value="selectedAuthorId" @update:model-value="handleAuthorSelect">
-              <SelectTrigger>
-                <SelectValue placeholder="搜索或选择作者" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  v-for="opt in authorOptions"
-                  :key="opt.id"
-                  :value="opt.id"
-                >
-                  {{ opt.name }}（{{ opt.dynasty }}）
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              :value="authorText"
-              placeholder="手动输入作者姓名"
-              @input="
-                handleAuthorTextChange(($event.target as HTMLInputElement).value)
-              "
+            <AuthorSelect
+              v-model="selectedAuthorId"
+              @select="handleAuthorSelect"
+              @update:model-value="handleAuthorIdChange"
             />
             <p v-if="errors.author" class="text-sm text-destructive">
               {{ errors.author }}
             </p>
           </div>
 
-          <!-- 朝代 -->
+          <!-- 朝代（随作者绑定，选择作者后自动填充） -->
           <div class="space-y-2">
             <Label for="dynasty">朝代</Label>
             <Input
               id="dynasty"
               v-model="formData.dynasty"
-              placeholder="自动填充或手动输入"
+              :disabled="!!selectedAuthorId"
+              placeholder="选择作者后自动填充"
             />
           </div>
 

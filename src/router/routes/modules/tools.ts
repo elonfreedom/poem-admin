@@ -20,6 +20,15 @@ const routes: RouteRecordRaw[] = [
     path: '/tools/dedup',
     component: () => import('#/views/tools/dedup.vue'),
   },
+  {
+    meta: {
+      hideInMenu: true,
+      title: 'page.tools.authorDedup',
+    },
+    name: 'ToolsAuthorDedup',
+    path: '/tools/author-dedup',
+    component: () => import('#/views/tools/author-dedup.vue'),
+  },
 ];
 
 export default routes;

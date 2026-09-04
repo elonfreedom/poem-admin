@@ -37,6 +37,8 @@ export interface PoetryListParams {
   author_id?: number;
   start_date?: string;
   end_date?: string;
+  has_translation?: 'true' | 'false';
+  has_appreciation?: 'true' | 'false';
 }
 
 export interface PoetryListResponse {
@@ -250,7 +252,7 @@ export async function getImportStatsApi(params?: { start_date?: string; end_date
 /** 去重扫描参数 */
 export interface DedupScanParams {
   match_fields: ('title' | 'author' | 'content')[];
-  status_filter?: string;
+  status_filter?: 'non_archived' | 'draft' | 'published' | 'archived';
   dynasty_filter?: string;
   page?: number;
   page_size?: number;
@@ -296,4 +298,23 @@ export function scanDuplicatesApi(params: DedupScanParams) {
 /** 执行去重（归档/删除） */
 export function executeDedupApi(params: DedupExecuteParams) {
   return requestClient.post<DedupExecuteResult>('/tools/dedup/execute', params);
+}
+
+/** 合并去重参数 */
+export interface DedupMergeParams {
+  keep_id: number;
+  merge_ids: number[];
+}
+
+/** 合并去重结果 */
+export interface DedupMergeResult {
+  keep_id: number;
+  merged_fields: string[];
+  archived: number;
+  message: string;
+}
+
+/** 合并去重（智能合并字段后归档） */
+export function mergeDedupApi(params: DedupMergeParams) {
+  return requestClient.post<DedupMergeResult>('/tools/dedup/merge', params);
 }

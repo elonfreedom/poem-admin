@@ -37,6 +37,7 @@ import {
 import PageHeader from '#/components/PageHeader.vue';
 import {
   executeDedupApi,
+  mergeDedupApi,
   scanDuplicatesApi,
 } from '#/api';
 import { formatDateTime } from '#/lib/utils';
@@ -79,10 +80,12 @@ function presetAll() {
 }
 
 // ======================== 筛选 ========================
-const statusFilter = ref('__all__');
+/** 默认排除已归档诗文，只查重草稿和已发布 */
+const statusFilter = ref('non_archived');
 const dynastyFilter = ref('__all__');
 
 const statusOptions = [
+  { label: '排除已归档', value: 'non_archived' },
   { label: '全部状态', value: '__all__' },
   { label: '草稿', value: 'draft' },
   { label: '已发布', value: 'published' },
@@ -121,14 +124,16 @@ const scanResult = ref<{
 // 分页状态
 const currentPage = ref(1);
 const pageSize = ref(20);
+const pageSizeOptions = [10, 20, 50, 100, 200, 500];
 
 async function handleScan(page = 1) {
   scanning.value = true;
   currentPage.value = page;
   try {
+    const sf = statusFilter.value;
     const result = await scanDuplicatesApi({
       match_fields: matchFields.value,
-      status_filter: statusFilter.value === '__all__' ? undefined : statusFilter.value,
+      status_filter: sf === '__all__' ? undefined : (sf as 'non_archived' | 'draft' | 'published' | 'archived'),
       dynasty_filter: dynastyFilter.value === '__all__' ? undefined : dynastyFilter.value,
       page,
       page_size: pageSize.value,
@@ -305,6 +310,7 @@ function openPreview() {
 
 // ======================== 执行 ========================
 const executing = ref(false);
+const executingGroups = ref<Set<string>>(new Set());
 
 async function handleExecute() {
   const archiveIds: number[] = [];
@@ -330,6 +336,33 @@ async function handleExecute() {
     // error handled by interceptor
   } finally {
     executing.value = false;
+  }
+}
+
+/** 处理单个重复组 */
+async function handleExecuteGroup(groupId: string) {
+  const sel = selections.value.get(groupId);
+  if (!sel) return;
+  if (sel.archiveIds.length === 0 && sel.deleteIds.length === 0) {
+    toast.warning('请先标记要归档或删除的诗文');
+    return;
+  }
+
+  executingGroups.value.add(groupId);
+  try {
+    const result = await executeDedupApi({
+      archive_ids: sel.archiveIds,
+      delete_ids: sel.deleteIds,
+    });
+    toast.success(
+      `处理完成：归档 ${result.archived} 首，删除 ${result.deleted} 首`,
+    );
+    // 移除该组
+    removeProcessedGroup(groupId, sel.archiveIds, sel.deleteIds);
+  } catch {
+    // error handled by interceptor
+  } finally {
+    executingGroups.value.delete(groupId);
   }
 }
 
@@ -367,6 +400,171 @@ function removeProcessedGroups(archiveIds: number[], deleteIds: number[]) {
   } else if (remainingGroups.length === 0) {
     // 第一页也为空，说明全部处理完毕
     scanResult.value = null;
+  }
+}
+
+/** 移除已处理的单个组 */
+function removeProcessedGroup(targetGroupId: string, archiveIds: number[], deleteIds: number[]) {
+  if (!scanResult.value) return;
+  const processedIds = new Set([...archiveIds, ...deleteIds]);
+  let targetUpdated = false;
+
+  const remainingGroups = scanResult.value.groups.filter((group) => {
+    if (group.group_id !== targetGroupId) return true; // 其他组保留
+
+    // 移除已处理的诗文，如果剩余 > 1 则保留该组
+    const remaining = group.poems.filter((p) => !processedIds.has(p.id));
+    if (remaining.length > 1) {
+      // 更新该组（保留在列表中，但诗文减少）
+      const first = remaining[0];
+      if (!first) return false;
+      const updatedGroup = {
+        ...group,
+        poems: remaining,
+        recommended_keep_id: first.id,
+      };
+      // 替换原组
+      const idx = scanResult.value!.groups.findIndex((g) => g.group_id === targetGroupId);
+      if (idx > -1) {
+        scanResult.value!.groups.splice(idx, 1, updatedGroup);
+        // 重新初始化该组的选择
+        selections.value.set(targetGroupId, {
+          keepId: first.id,
+          archiveIds: remaining.filter((p) => p.id !== first.id).map((p) => p.id),
+          deleteIds: [],
+        });
+        targetUpdated = true;
+        return true; // 已替换，保留在列表中
+      }
+    }
+    // 剩余 ≤ 1，移除该组
+    selections.value.delete(targetGroupId);
+    return false;
+  });
+
+  // 如果目标组被更新但不在 remainingGroups 中（被 filter 排除了），需要加回来
+  if (targetUpdated && !remainingGroups.some((g) => g.group_id === targetGroupId)) {
+    const updated = scanResult.value.groups.find((g) => g.group_id === targetGroupId);
+    if (updated) remainingGroups.push(updated);
+  }
+
+  scanResult.value = {
+    ...scanResult.value,
+    groups: remainingGroups,
+  };
+  // 如果当前页变空且不是第一页，回退到上一页
+  if (remainingGroups.length === 0 && currentPage.value > 1) {
+    handleScan(currentPage.value - 1);
+  } else if (remainingGroups.length === 0) {
+    scanResult.value = null;
+  }
+}
+
+/** 计算单组的归档/删除数量 */
+function groupActionCount(groupId: string): { archive: number; delete: number } {
+  const sel = selections.value.get(groupId);
+  if (!sel) return { archive: 0, delete: 0 };
+  return { archive: sel.archiveIds.length, delete: sel.deleteIds.length };
+}
+
+// ======================== 合并 ========================
+interface MergePreviewItem {
+  field: string;
+  label: string;
+  source: string;
+  sourceId: number;
+}
+
+interface MergePreview {
+  keepPoem: any;
+  mergePoems: any[];
+  items: MergePreviewItem[];
+}
+
+const mergePreviewOpen = ref(false);
+const mergePreview = ref<MergePreview | null>(null);
+const mergingGroupId = ref<string | null>(null);
+
+/** 计算合并预览 */
+function computeMergePreview(groupId: string): MergePreview | null {
+  const group = scanResult.value?.groups.find((g) => g.group_id === groupId);
+  if (!group) return null;
+  const sel = selections.value.get(groupId);
+  if (!sel) return null;
+  const keepPoem = group.poems.find((p) => p.id === sel.keepId);
+  if (!keepPoem) return null;
+  const mergePoems = group.poems.filter((p) => p.id !== sel.keepId);
+  if (mergePoems.length === 0) return null;
+
+  const items: MergePreviewItem[] = [];
+
+  // 单值字段：保留诗为空则从合并诗取第一个有值的
+  const singleFields: Array<{ key: string; label: string; getValue: (p: any) => any }> = [
+    { key: 'translation', label: '翻译', getValue: (p: any) => p.translation },
+    { key: 'appreciation', label: '赏析', getValue: (p: any) => p.appreciation },
+    { key: 'title_pinyin', label: '标题拼音', getValue: (p: any) => p.title_pinyin },
+    { key: 'content_pinyin', label: '内容拼音', getValue: (p: any) => p.content_pinyin },
+    { key: 'author_pinyin', label: '作者拼音', getValue: (p: any) => p.author_pinyin },
+    { key: 'category_id', label: '分类', getValue: (p: any) => p.category_id },
+    { key: 'cover_url', label: '封面', getValue: (p: any) => p.cover_url },
+  ];
+
+  for (const { key, label, getValue } of singleFields) {
+    if (!getValue(keepPoem)) {
+      const source = mergePoems.find((p) => getValue(p));
+      if (source) {
+        items.push({ field: key, label, source: `#${source.id}`, sourceId: source.id });
+      }
+    }
+  }
+
+  // 标签：合并去重
+  const existingTags = new Set(keepPoem.tags || []);
+  const newTags: string[] = [];
+  for (const p of mergePoems) {
+    for (const t of p.tags || []) {
+      if (!existingTags.has(t)) {
+        existingTags.add(t);
+        newTags.push(t);
+      }
+    }
+  }
+  if (newTags.length > 0) {
+    items.push({ field: 'tags', label: '标签', source: newTags.join(', '), sourceId: mergePoems[0]?.id ?? 0 });
+  }
+
+  return { keepPoem, mergePoems, items };
+}
+
+function openMergePreview(groupId: string) {
+  const preview = computeMergePreview(groupId);
+  if (!preview) return;
+  mergePreview.value = preview;
+  mergingGroupId.value = groupId;
+  mergePreviewOpen.value = true;
+}
+
+async function handleMerge() {
+  if (!mergePreview.value || !mergingGroupId.value) return;
+  const { keepPoem, mergePoems } = mergePreview.value;
+  if (mergePoems.length === 0) return;
+
+  const groupId = mergingGroupId.value;
+  executingGroups.value.add(groupId);
+  try {
+    const result = await mergeDedupApi({
+      keep_id: keepPoem.id,
+      merge_ids: mergePoems.map((p) => p.id),
+    });
+    toast.success(result.message || `合并完成，已归档 ${result.archived} 首`);
+    // 移除该组
+    removeProcessedGroup(groupId, [], mergePoems.map((p) => p.id));
+    mergePreviewOpen.value = false;
+  } catch {
+    // error handled by interceptor
+  } finally {
+    executingGroups.value.delete(groupId);
+    mergingGroupId.value = null;
   }
 }
 
@@ -509,11 +707,29 @@ function isActionSelected(groupId: string, poemId: number, action: 'archive' | '
               </SelectContent>
             </Select>
           </div>
+          <div class="space-y-1">
+            <label class="text-xs text-muted-foreground">每页数量</label>
+            <Select
+              :modelValue="String(pageSize)"
+              @update:modelValue="(v) => { pageSize = Number(v); handleScan(1); }">
+              <SelectTrigger class="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  v-for="size in pageSizeOptions"
+                  :key="size"
+                  :value="String(size)">
+                  {{ size }} 组
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button
             size="sm"
             class="h-9"
             :disabled="scanning"
-            @click="handleScan">
+            @click="handleScan(1)">
             <ScanSearch class="mr-1.5 h-3.5 w-3.5" />
             {{ scanning ? '扫描中...' : '开始扫描' }}
           </Button>
@@ -607,6 +823,24 @@ function isActionSelected(groupId: string, poemId: number, action: 'archive' | '
                   size="xs"
                   @click="clearGroupMarks(group.group_id)">
                   清空标记
+                </Button>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  class="ml-1"
+                  :disabled="executingGroups.has(group.group_id)"
+                  @click="openMergePreview(group.group_id)">
+                  <CopyX class="mr-1 h-3 w-3" />
+                  合并此组
+                </Button>
+                <Button
+                  size="xs"
+                  class="ml-1"
+                  :disabled="(groupActionCount(group.group_id).archive + groupActionCount(group.group_id).delete) === 0 || executingGroups.has(group.group_id)"
+                  @click="handleExecuteGroup(group.group_id)">
+                  <Archive v-if="executingGroups.has(group.group_id)" class="mr-1 h-3 w-3 animate-spin" />
+                  <Archive v-else class="mr-1 h-3 w-3" />
+                  {{ executingGroups.has(group.group_id) ? '处理中...' : '处理此组' }}
                 </Button>
               </div>
             </div>
@@ -843,6 +1077,84 @@ function isActionSelected(groupId: string, poemId: number, action: 'archive' | '
             :disabled="executing"
             @click="handleExecute">
             {{ executing ? '执行中...' : '确认执行' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- 合并预览弹窗 -->
+    <Dialog v-model:open="mergePreviewOpen">
+      <DialogContent class="max-w-lg">
+        <DialogHeader>
+          <DialogTitle class="flex items-center gap-2">
+            <CopyX class="h-5 w-5 text-primary" />
+            智能合并预览
+          </DialogTitle>
+          <DialogDescription>
+            将重复诗中的有价值信息补充到保留诗，然后归档重复诗
+          </DialogDescription>
+        </DialogHeader>
+        <div v-if="mergePreview" class="space-y-4">
+          <!-- 保留诗 -->
+          <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+            <div class="mb-1 flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              <Info class="h-3.5 w-3.5" />
+              保留诗 #{{ mergePreview.keepPoem.id }}
+            </div>
+            <div class="text-sm font-medium">{{ mergePreview.keepPoem.title_sc || mergePreview.keepPoem.title }}</div>
+            <div class="mt-1 text-xs text-muted-foreground">
+              {{ mergePreview.keepPoem.dynasty }} · {{ mergePreview.keepPoem.author_sc || mergePreview.keepPoem.author }}
+            </div>
+          </div>
+
+          <!-- 合并来源 -->
+          <div class="rounded-lg border border-border p-3">
+            <div class="mb-2 text-sm font-medium">
+              合并来源（{{ mergePreview.mergePoems.length }} 首，合并后将归档）
+            </div>
+            <div class="flex flex-wrap gap-1">
+              <Badge
+                v-for="p in mergePreview.mergePoems"
+                :key="p.id"
+                variant="outline"
+                class="text-xs">
+                #{{ p.id }} {{ (p.title_sc || p.title).slice(0, 8) }}
+              </Badge>
+            </div>
+          </div>
+
+          <!-- 字段预览 -->
+          <div v-if="mergePreview.items.length > 0" class="space-y-2">
+            <div class="text-sm font-medium">将补充以下字段：</div>
+            <div class="space-y-1">
+              <div
+                v-for="item in mergePreview.items"
+                :key="item.field"
+                class="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm">
+                <span class="font-medium text-primary">{{ item.label }}</span>
+                <span class="text-xs text-muted-foreground">来自 {{ item.source }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-400">
+            <div class="flex items-center gap-2">
+              <Info class="h-3.5 w-3.5" />
+              保留诗已有完整信息，无字段可补充
+            </div>
+            <div class="mt-1 text-xs text-muted-foreground">
+              执行后仅会归档重复诗文，不会对保留诗做修改
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="mergePreviewOpen = false">
+            取消
+          </Button>
+          <Button
+            :disabled="mergingGroupId && executingGroups.has(mergingGroupId)"
+            @click="handleMerge">
+            <Archive v-if="mergingGroupId && executingGroups.has(mergingGroupId)" class="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            {{ mergingGroupId && executingGroups.has(mergingGroupId) ? '合并中...' : '确认合并' }}
           </Button>
         </DialogFooter>
       </DialogContent>

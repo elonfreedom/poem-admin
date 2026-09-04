@@ -115,6 +115,14 @@ const keyword = ref('');
 const searchScope = ref<SearchScope>('all');
 const dynasty = ref<string>('');
 const status = ref<string>('');
+const hasTranslation = ref<string>('__all__');
+const hasAppreciation = ref<string>('__all__');
+
+const completenessOptions = [
+  { label: '全部', value: '__all__' },
+  { label: '有', value: 'true' },
+  { label: '无', value: 'false' },
+];
 
 /** 选中行 */
 const selectedRowKeys = ref<number[]>([]);
@@ -129,6 +137,8 @@ const { data, loading, pagination, refresh, setFilters } = useTable<Poetry>({
       search_scope: searchScope.value === 'all' ? undefined : searchScope.value,
       dynasty: dynasty.value === '__all__' ? undefined : dynasty.value,
       status: status.value === '__all__' ? undefined : status.value,
+      has_translation: hasTranslation.value === '__all__' ? undefined : (hasTranslation.value as 'true' | 'false'),
+      has_appreciation: hasAppreciation.value === '__all__' ? undefined : (hasAppreciation.value as 'true' | 'false'),
     };
     return await getPoetryListApi(params);
   },
@@ -190,12 +200,14 @@ function handleReset() {
   searchScope.value = 'all';
   dynasty.value = '__all__';
   status.value = '__all__';
+  hasTranslation.value = '__all__';
+  hasAppreciation.value = '__all__';
   selectedRowKeys.value = [];
   setFilters({});
 }
 
 /** 筛选变化自动搜索 */
-watch([dynasty, status], () => {
+watch([dynasty, status, hasTranslation, hasAppreciation], () => {
   setFilters({});
 });
 
@@ -303,7 +315,11 @@ async function loadListData() {
     dynasty: dynasty.value || undefined,
     status: status.value || undefined,
   };
-  const result = await getPoetryListApi(params);
+  const result = await getPoetryListApi({
+    ...params,
+    has_translation: hasTranslation.value === '__all__' ? undefined : (hasTranslation.value as 'true' | 'false'),
+    has_appreciation: hasAppreciation.value === '__all__' ? undefined : (hasAppreciation.value as 'true' | 'false'),
+  });
   data.value = result.items;
   pagination.value.total = result.total;
 }
@@ -389,6 +405,32 @@ function truncate(text: string, len: number): string {
             </SelectItem>
           </SelectContent>
         </Select>
+        <Select v-model="hasTranslation">
+          <SelectTrigger class="w-24">
+            <SelectValue placeholder="翻译" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              v-for="opt in completenessOptions"
+              :key="opt.value"
+              :value="opt.value">
+              {{ opt.label === '全部' ? '翻译' : '翻译' + opt.label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <Select v-model="hasAppreciation">
+          <SelectTrigger class="w-24">
+            <SelectValue placeholder="赏析" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              v-for="opt in completenessOptions"
+              :key="opt.value"
+              :value="opt.value">
+              {{ opt.label === '全部' ? '赏析' : '赏析' + opt.label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
         <Button variant="outline" size="sm" @click="handleReset">
           重置
         </Button>
@@ -438,6 +480,7 @@ function truncate(text: string, len: number): string {
             <TableHead class="w-[70px]">朝代</TableHead>
             <TableHead class="w-[80px]">分类</TableHead>
             <TableHead class="w-[90px]">状态</TableHead>
+            <TableHead class="w-[80px]">翻译/赏析</TableHead>
             <TableHead class="w-[160px]">创建时间</TableHead>
             <TableHead class="w-[160px] text-right">操作</TableHead>
           </TableRow>
@@ -490,6 +533,22 @@ function truncate(text: string, len: number): string {
                   <span class="status-dot" :class="statusDotColor[row.status]" />
                   {{ statusLabels[row.status] || row.status }}
                 </Badge>
+              </TableCell>
+              <TableCell>
+                <div class="flex items-center gap-1.5">
+                  <span
+                    class="completeness-tag"
+                    :class="row.translation ? 'has' : 'missing'"
+                    :title="row.translation ? '有翻译' : '无翻译'">
+                    译
+                  </span>
+                  <span
+                    class="completeness-tag"
+                    :class="row.appreciation ? 'has' : 'missing'"
+                    :title="row.appreciation ? '有赏析' : '无赏析'">
+                    赏
+                  </span>
+                </div>
               </TableCell>
               <TableCell class="text-sm text-muted-foreground">
                 {{ formatDateTime(row.created_at) }}
@@ -781,6 +840,38 @@ function truncate(text: string, len: number): string {
   justify-content: flex-end;
   padding: 16px;
   border-top: 1px solid var(--color-border);
+}
+
+/* ===== 完整度标签（翻译/赏析） ===== */
+.completeness-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.completeness-tag.has {
+  color: oklch(0.5 0.1 145);
+  background: oklch(0.7 0.1 145 / 0.12);
+}
+
+.completeness-tag.missing {
+  color: oklch(0.55 0.005 60 / 0.4);
+  background: oklch(0.95 0.005 60 / 0.4);
+}
+
+.dark .completeness-tag.has {
+  color: oklch(0.75 0.1 145);
+  background: oklch(0.7 0.1 145 / 0.18);
+}
+
+.dark .completeness-tag.missing {
+  color: oklch(0.5 0.005 60 / 0.4);
+  background: oklch(0.2 0.01 60 / 0.4);
 }
 
 /* ===== 查看弹窗 ===== */

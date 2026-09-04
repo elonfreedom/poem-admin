@@ -222,7 +222,9 @@
     "title": "标签管理"
   },
   "tools": {
-    "title": "批量工具"
+    "title": "批量工具",
+    "dedup": "诗文去重",
+    "authorDedup": "作者查重"
   },
   "system": {
     "title": "系统配置",

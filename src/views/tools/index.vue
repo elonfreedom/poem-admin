@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useRouter } from 'vue-router';
 
-import { ArrowLeft, BookOpen, CopyX, Link, Type } from 'lucide-vue-next';
+import { ArrowLeft, BookOpen, CopyX, Eraser, Link, Type, Users } from 'lucide-vue-next';
 
 import { Button } from '#/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card';
@@ -10,6 +10,8 @@ import PageHeader from '#/components/PageHeader.vue';
 import {
   batchConvertSimplifiedApi,
   batchMatchAuthorsApi,
+  cleanupAuthorNamesApi,
+  cleanupAuthorNamesScApi,
   generateAuthorsApi,
 } from '#/api';
 import { toast } from 'vue-sonner';
@@ -25,7 +27,7 @@ async function onGenerateAuthors() {
   toast.promise(promise, {
     loading: '正在提取...',
     success: (result: any) =>
-      `提取完成：共 ${result.total_unique} 个不重复作者，新增 ${result.created} 个，跳过 ${result.skipped} 个`,
+      `提取完成：共 ${result.total_unique} 个不重复作者，新增 ${result.created} 个，跳过 ${result.skipped} 个${result.with_dynasty ? `（${result.with_dynasty} 个附带朝代）` : ''}${result.backfilled ? `，回填 ${result.backfilled} 个已有作者朝代` : ''}`,
     error: '提取失败',
   });
 }
@@ -63,6 +65,32 @@ function onDedup() {
   router.push('/tools/dedup');
 }
 
+// 清理作者重复繁简名
+function onCleanupAuthorNames() {
+  if (!confirm('清理 name 与 name_traditional 相同的作者记录，将冗余的繁体名清空。')) {
+    return;
+  }
+  const promise = cleanupAuthorNamesApi();
+  toast.promise(promise, {
+    loading: '正在清理...',
+    success: (result: any) => result.message || `清理完成：已处理 ${result.cleaned} 个作者`,
+    error: '清理失败',
+  });
+}
+
+// 作者姓名转简体
+function onCleanupAuthorNamesSc() {
+  if (!confirm('将 name 中的繁体字转为简体，原值保留为 name_traditional。')) {
+    return;
+  }
+  const promise = cleanupAuthorNamesScApi();
+  toast.promise(promise, {
+    loading: '正在处理...',
+    success: (result: any) => result.message || `处理完成：已处理 ${result.processed} 个作者`,
+    error: '处理失败',
+  });
+}
+
 const tools = [
   {
     icon: CopyX,
@@ -71,6 +99,30 @@ const tools = [
       '扫描重复诗文（标题/作者/内容匹配），分组对比后批量归档或删除多余项。',
     onClick: onDedup,
     buttonText: '开始去重',
+  },
+  {
+    icon: Users,
+    title: '作者查重',
+    description:
+      '扫描重复作者（按姓名或姓名+朝代），合并后重新关联诗歌。',
+    onClick: () => router.push('/tools/author-dedup'),
+    buttonText: '开始查重',
+  },
+  {
+    icon: Eraser,
+    title: '清理作者繁简名',
+    description:
+      '清理 name 与 name_traditional 相同的作者记录，清空冗余的繁体名。',
+    onClick: onCleanupAuthorNames,
+    buttonText: '开始清理',
+  },
+  {
+    icon: Type,
+    title: '作者姓名转简体',
+    description:
+      '将 name 中的繁体字转为简体，原值保留为 name_traditional。',
+    onClick: onCleanupAuthorNamesSc,
+    buttonText: '开始处理',
   },
   {
     icon: BookOpen,
@@ -92,7 +144,7 @@ const tools = [
     icon: Type,
     title: '批量生成简体',
     description:
-      '为所有存量诗歌自动生成简体文本（title_sc、author_sc、content_sc）。',
+      '为所有存量诗歌自动生成简体文本，同时补充作者名的繁体（name_traditional）。',
     onClick: onBatchConvert,
     buttonText: '开始生成',
   },
@@ -144,7 +196,7 @@ const tools = [
             <strong>批量关联</strong>：将诗歌与作者库匹配，建立关联关系
           </li>
           <li>
-            <strong>批量生成简体</strong>：为所有诗歌生成简体文本（可选）
+            <strong>批量生成简体</strong>：为所有诗歌生成简体文本，补充作者名繁体（可选）
           </li>
         </ol>
       </CardContent>

@@ -19,6 +19,7 @@ import {
 
 import PageHeader from '#/components/PageHeader.vue';
 import TableAction from '#/components/TableAction.vue';
+import { Pagination } from '#/components/ui/pagination';
 import { useTable } from '#/composables/useTable';
 import { deleteAuthorApi, getAuthorListApi } from '#/api';
 import { formatDateTime } from '#/lib/utils';
@@ -30,7 +31,7 @@ const router = useRouter();
 const keyword = ref('');
 
 /** 表格数据 */
-const { data, refresh, setFilters } = useTable<Author>({
+const { data, loading, pagination, refresh, setFilters } = useTable<Author>({
   fetchData: async ({ page, pageSize }) => {
     const params: AuthorListParams = {
       page,
@@ -51,6 +52,31 @@ function handleSearch() {
 function handleReset() {
   keyword.value = '';
   setFilters({});
+}
+
+/** 分页变化 */
+function handlePageChange(page: number) {
+  pagination.value.current = page;
+  loadListData();
+}
+
+/** 每页条数变化 */
+function handlePageSizeChange(size: number) {
+  pagination.value.pageSize = size;
+  pagination.value.current = 1;
+  loadListData();
+}
+
+/** 手动加载数据 */
+async function loadListData() {
+  const params: AuthorListParams = {
+    page: pagination.value.current,
+    page_size: pagination.value.pageSize,
+    keyword: keyword.value || undefined,
+  };
+  const result = await getAuthorListApi(params);
+  data.value = result.items;
+  pagination.value.total = result.total;
 }
 
 function onCreate() {
@@ -102,17 +128,31 @@ function onDelete(row: Author) {
             <TableHead class="w-[120px]">姓名</TableHead>
             <TableHead class="w-[120px]">繁体</TableHead>
             <TableHead class="w-[100px]">朝代</TableHead>
+            <TableHead class="w-[80px]">诗歌数</TableHead>
             <TableHead>简介</TableHead>
             <TableHead class="w-[180px]">创建时间</TableHead>
             <TableHead class="w-[150px] text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableRow v-for="row in data" :key="row.id">
+          <TableRow v-if="loading">
+            <TableCell colspan="8" class="h-32 text-center text-muted-foreground">
+              加载中...
+            </TableCell>
+          </TableRow>
+          <TableRow v-else-if="data.length === 0">
+            <TableCell colspan="8" class="h-32 text-center text-muted-foreground">
+              暂无数据
+            </TableCell>
+          </TableRow>
+          <TableRow v-else v-for="row in data" :key="row.id">
             <TableCell>{{ row.id }}</TableCell>
             <TableCell>{{ row.name }}</TableCell>
             <TableCell>{{ row.name_traditional || '-' }}</TableCell>
             <TableCell>{{ row.dynasty }}</TableCell>
+            <TableCell>
+              <span class="font-medium tabular-nums">{{ row.poem_count ?? 0 }}</span>
+            </TableCell>
             <TableCell>{{ row.biography || '-' }}</TableCell>
             <TableCell>{{ formatDateTime(row.created_at) }}</TableCell>
             <TableCell class="text-right">
@@ -138,13 +178,19 @@ function onDelete(row: Author) {
                 align="center" />
             </TableCell>
           </TableRow>
-          <TableRow v-if="data.length === 0">
-            <TableCell colspan="7" class="h-32 text-center text-muted-foreground">
-              暂无数据
-            </TableCell>
-          </TableRow>
         </TableBody>
       </Table>
+    </div>
+
+    <!-- 分页 -->
+    <div v-if="data.length > 0" class="flex justify-end">
+      <Pagination
+        :current="pagination.current"
+        :page-size="pagination.pageSize"
+        :total="pagination.total"
+        :page-size-options="[10, 20, 50, 100]"
+        @update:current="handlePageChange"
+        @update:page-size="handlePageSizeChange" />
     </div>
   </div>
 </template>

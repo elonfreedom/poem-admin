@@ -222,7 +222,9 @@
     "title": "Tags"
   },
   "tools": {
-    "title": "Tools"
+    "title": "Tools",
+    "dedup": "Deduplicate",
+    "authorDedup": "Author Dedup"
   },
   "system": {
     "title": "System",
