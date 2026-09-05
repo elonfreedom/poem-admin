@@ -1,7 +1,7 @@
 <script lang="ts" setup >
 import type { CharsType, CreatePoetryParams, ImportError } from '#/api';
 
-import { computed, ref } from 'vue';
+import { computed, ref, type Ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import {
@@ -150,6 +150,78 @@ const NONE_MAPPING = '__none__';
 function hasMapping(key: string): boolean {
   const val = fieldMapping.value[key];
   return val !== undefined && val !== null && val !== '' && val !== NONE_MAPPING;
+}
+
+/** 字段合并配置 */
+interface MergeConfig {
+  enabled: boolean;
+  fields: string[];
+  separator: string;
+}
+
+/** 各目标字段的合并配置 */
+const mergeConfigs: Ref<Record<string, MergeConfig>> = ref({});
+
+/** 获取或初始化合并配置 */
+function getMergeConfig(key: string): MergeConfig {
+  if (!mergeConfigs.value[key]) {
+    mergeConfigs.value[key] = { enabled: false, fields: [], separator: '·' };
+  }
+  return mergeConfigs.value[key]!;
+}
+
+/** 切换合并启用状态 */
+function toggleMerge(key: string) {
+  const cfg = getMergeConfig(key);
+  cfg.enabled = !cfg.enabled;
+}
+
+/** 添加合并源字段 */
+function addMergeField(key: string, field: string) {
+  const cfg = getMergeConfig(key);
+  if (field && !cfg.fields.includes(field)) {
+    cfg.fields.push(field);
+  }
+}
+
+/** 移除合并源字段 */
+function removeMergeField(key: string, field: string) {
+  const cfg = getMergeConfig(key);
+  cfg.fields = cfg.fields.filter((f) => f !== field);
+}
+
+/** 分隔符预设 */
+const separatorPresets = [
+  { label: '·', value: '·' },
+  { label: '-', value: '-' },
+  { label: '/', value: '/' },
+  { label: '空格', value: ' ' },
+  { label: '|', value: '|' },
+];
+
+/** 计算合并预览结果（取第一条数据） */
+function getMergePreview(key: string): string {
+  const cfg = getMergeConfig(key);
+  if (!cfg.enabled || rawPoems.value.length === 0) {
+    return '';
+  }
+  const raw = rawPoems.value[0]!;
+  // 合并字段 = 主字段 + 额外添加的字段
+  const mergeFields = [...cfg.fields];
+  const mainField = fieldMapping.value[key];
+  if (mainField && mainField !== NONE_MAPPING && !mergeFields.includes(mainField)) {
+    mergeFields.unshift(mainField);
+  }
+  if (mergeFields.length === 0) return '';
+  const parts = mergeFields
+    .map((f) => {
+      const val = raw[f];
+      if (val === undefined || val === null) return '';
+      if (Array.isArray(val)) return val.join(' ');
+      return String(val);
+    })
+    .filter(Boolean);
+  return parts.join(cfg.separator);
 }
 
 /** 批量默认设置 */
@@ -346,6 +418,29 @@ function applyMapping(
   };
 
   const getStr = (key: string) => {
+    // 优先处理合并字段
+    const mergeCfg = mergeConfigs.value[key];
+    if (mergeCfg?.enabled) {
+      // 合并字段 = 主字段 + 额外添加的字段
+      const mergeFields = [...mergeCfg.fields];
+      const mainField = mapping[key];
+      if (mainField && mainField !== NONE_MAPPING && !mergeFields.includes(mainField)) {
+        mergeFields.unshift(mainField);
+      }
+      if (mergeFields.length > 0) {
+        const parts = mergeFields
+          .map((f) => {
+            const val = raw[f];
+            if (val === undefined || val === null) return '';
+            if (Array.isArray(val)) return val.join(' ');
+            return String(val);
+          })
+          .filter(Boolean);
+        if (parts.length > 0) return parts.join(mergeCfg.separator);
+      }
+    }
+
+    // 单字段映射
     const sourceField = getSourceField(key);
     if (!sourceField) return '';
     const val = raw[sourceField];
@@ -697,6 +792,7 @@ function resetBatch() {
   importResult.value = null;
   currentStep.value = 'upload';
   fieldMapping.value = {};
+  mergeConfigs.value = {};
   sourceFields.value = [];
   showRawJson.value = false;
   defaultSource.value = '';
@@ -1026,7 +1122,7 @@ function formatPreview(value: unknown, maxLen = 40): string {
                 :key="field.key"
                 class="flex items-center gap-2"
               >
-                <Label class="w-20 shrink-0 text-right text-sm">
+                <Label class="w-16 shrink-0 text-right text-sm">
                   <span v-if="field.required" class="mr-1 text-destructive">*</span>
                   {{ field.label }}
                 </Label>
@@ -1041,6 +1137,122 @@ function formatPreview(value: unknown, maxLen = 40): string {
                     </SelectItem>
                   </SelectContent>
                 </Select>
+                <!-- 合并字段按钮 -->
+                <button
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors"
+                  :title="getMergeConfig(field.key).enabled ? '取消字段合并' : '合并多个字段'"
+                  :class="
+                    getMergeConfig(field.key).enabled
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
+                  "
+                  @click="toggleMerge(field.key)"
+                >
+                  <Plus class="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <!-- 字段合并配置区域 -->
+            <div
+              v-for="field in targetFields.filter((f) => getMergeConfig(f.key).enabled)"
+              :key="'merge-' + field.key"
+              class="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3"
+            >
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm font-medium">
+                  {{ field.label }} — 字段合并
+                </span>
+                <button
+                  class="text-xs text-muted-foreground hover:text-destructive"
+                  @click="toggleMerge(field.key)"
+                >
+                  取消合并
+                </button>
+              </div>
+
+              <!-- 已选源字段标签 -->
+              <div class="mb-2 flex flex-wrap gap-1.5">
+                <Badge
+                  v-for="(f, idx) in getMergeConfig(field.key).fields"
+                  :key="f"
+                  variant="secondary"
+                  class="gap-1.5 pr-1"
+                >
+                  <span class="text-xs text-muted-foreground">{{ idx + 1 }}</span>
+                  {{ f }}
+                  <X
+                    class="h-3 w-3 cursor-pointer hover:text-destructive"
+                    @click="removeMergeField(field.key, f)"
+                  />
+                </Badge>
+                <span
+                  v-if="getMergeConfig(field.key).fields.length === 0"
+                  class="text-xs text-muted-foreground"
+                >
+                  请选择要合并的源字段
+                </span>
+              </div>
+
+              <!-- 添加源字段 + 分隔符 -->
+              <div class="flex items-center gap-2">
+                <Select
+                  :model-value="''"
+                  @update:model-value="
+                    ($e) => {
+                      if ($e && $e !== NONE_MAPPING) addMergeField(field.key, $e as string);
+                    }
+                  "
+                >
+                  <SelectTrigger class="h-8 flex-1">
+                    <SelectValue placeholder="添加源字段" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      v-for="sf in sourceFields.filter(
+                        (s) => !getMergeConfig(field.key).fields.includes(s),
+                      )"
+                      :key="sf"
+                      :value="sf"
+                    >
+                      {{ sf }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <span class="text-xs text-muted-foreground">分隔符</span>
+                <div class="flex gap-1">
+                  <button
+                    v-for="preset in separatorPresets"
+                    :key="preset.value"
+                    class="flex h-8 w-8 items-center justify-center rounded border text-sm transition-colors"
+                    :class="
+                      getMergeConfig(field.key).separator === preset.value
+                        ? 'border-primary bg-primary/10 text-primary font-medium'
+                        : 'border-border text-muted-foreground hover:border-primary/50'
+                    "
+                    @click="getMergeConfig(field.key).separator = preset.value"
+                  >
+                    {{ preset.label }}
+                  </button>
+                  <Input
+                    v-model="getMergeConfig(field.key).separator"
+                    class="h-8 w-16 text-center"
+                    placeholder="自定义"
+                    maxlength="5"
+                  />
+                </div>
+              </div>
+
+              <!-- 合并预览 -->
+              <div
+                v-if="getMergePreview(field.key)"
+                class="mt-2 flex items-center gap-2 text-xs"
+              >
+                <span class="text-muted-foreground">预览：</span>
+                <span class="rounded bg-card px-2 py-0.5 font-medium text-foreground">
+                  {{ getMergePreview(field.key) }}
+                </span>
               </div>
             </div>
 
@@ -1111,10 +1323,24 @@ function formatPreview(value: unknown, maxLen = 40): string {
                             <span v-if="field.required" class="text-destructive">*</span>
                           </td>
                           <td class="px-2 py-1 text-muted-foreground">
-                            {{ hasMapping(field.key) ? fieldMapping[field.key] : '—' }}
+                            <!-- 合并模式显示 -->
+                            <span v-if="getMergeConfig(field.key).enabled">
+                              <span class="text-primary">合并:</span>
+                              {{ getMergeConfig(field.key).fields.join(' + ') }}
+                            </span>
+                            <span v-else>
+                              {{ hasMapping(field.key) ? fieldMapping[field.key] : '—' }}
+                            </span>
                           </td>
                           <td class="max-w-[180px] truncate px-2 py-1">
-                            <span v-if="hasMapping(field.key) && rawPoems[0]">
+                            <!-- 合并预览 -->
+                            <span
+                              v-if="getMergeConfig(field.key).enabled && getMergePreview(field.key)"
+                              class="text-primary"
+                            >
+                              {{ formatPreview(getMergePreview(field.key), 50) }}
+                            </span>
+                            <span v-else-if="hasMapping(field.key) && rawPoems[0]">
                               {{
                                 formatPreview(
                                   rawPoems[0][fieldMapping[field.key]!],
