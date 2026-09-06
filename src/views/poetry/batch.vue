@@ -1180,10 +1180,10 @@ function formatPreview(value: unknown, maxLen = 40): string {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem :value="NONE_MAPPING">不映射</SelectItem>
-                      <SelectItem :value="CUSTOM_VALUE">自定义文本</SelectItem>
                       <SelectItem v-for="f in sourceFields" :key="f" :value="f">
                         {{ f }}
                       </SelectItem>
+                      <SelectItem :value="CUSTOM_VALUE">自定义文本</SelectItem>
                     </SelectContent>
                   </Select>
                   <!-- 合并字段按钮 -->
