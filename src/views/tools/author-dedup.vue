@@ -1,5 +1,5 @@
 <script lang="ts" setup >
-import type { AuthorDedupGroup } from '#/api';
+import type { AuthorDedupGroup, Poetry } from '#/api';
 
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -7,7 +7,10 @@ import { useRouter } from 'vue-router';
 import {
   ArrowLeft,
   BookUser,
+  ChevronDown,
+  ChevronUp,
   CopyX,
+  Loader2,
   ScanSearch,
   Users,
 } from 'lucide-vue-next';
@@ -24,6 +27,7 @@ import {
 
 import PageHeader from '#/components/PageHeader.vue';
 import {
+  getPoetryListApi,
   mergeAuthorsApi,
   scanAuthorDuplicatesApi,
 } from '#/api';
@@ -74,7 +78,7 @@ function initSelections(groups: AuthorDedupGroup[]) {
   for (const group of groups) {
     // 默认选诗歌数最多的作为保留项
     const sorted = [...group.authors].sort((a, b) => (b.poem_count ?? 0) - (a.poem_count ?? 0));
-    newMap.set(group.group_id, sorted[0]?.id ?? 0);
+    newMap.set(group.group_key, sorted[0]?.id ?? 0);
   }
   keepSelections.value = newMap;
 }
@@ -83,11 +87,46 @@ function setKeepId(groupId: string, authorId: number) {
   keepSelections.value.set(groupId, authorId);
 }
 
+// ======================== 诗歌预览 ========================
+/** 展开诗歌预览的作者 ID 集合 */
+const expandedAuthors = ref<Set<number>>(new Set());
+/** 各作者的诗歌数据 */
+const authorPoems = ref<Map<number, Poetry[]>>(new Map());
+/** 加载中的作者 ID */
+const loadingPoems = ref<Set<number>>(new Set());
+
+function isAuthorExpanded(authorId: number): boolean {
+  return expandedAuthors.value.has(authorId);
+}
+
+async function togglePoemPreview(authorId: number) {
+  if (expandedAuthors.value.has(authorId)) {
+    expandedAuthors.value.delete(authorId);
+    return;
+  }
+  expandedAuthors.value.add(authorId);
+  // 已加载过则跳过
+  if (authorPoems.value.has(authorId)) return;
+
+  loadingPoems.value.add(authorId);
+  try {
+    const result = await getPoetryListApi({
+      author_id: authorId,
+      page_size: 50,
+    });
+    authorPoems.value.set(authorId, result.items);
+  } catch {
+    // error handled by interceptor
+  } finally {
+    loadingPoems.value.delete(authorId);
+  }
+}
+
 // ======================== 合并 ========================
 const executingGroups = ref<Set<string>>(new Set());
 
 async function handleMergeGroup(groupId: string) {
-  const group = scanResult.value?.groups.find((g) => g.group_id === groupId);
+  const group = scanResult.value?.groups.find((g) => g.group_key === groupId);
   if (!group) return;
   const keepId = keepSelections.value.get(groupId);
   if (!keepId) return;
@@ -105,8 +144,8 @@ async function handleMergeGroup(groupId: string) {
     });
     toast.success(result.message || `合并完成，已处理 ${result.merged} 个作者`);
     removeGroup(groupId);
-  } catch {
-    // error handled by interceptor
+  } catch (err: any) {
+    console.error('合并失败:', err);
   } finally {
     executingGroups.value.delete(groupId);
   }
@@ -116,10 +155,23 @@ function removeGroup(groupId: string) {
   if (!scanResult.value) return;
   scanResult.value = {
     ...scanResult.value,
-    groups: scanResult.value.groups.filter((g) => g.group_id !== groupId),
+    groups: scanResult.value.groups.filter((g) => g.group_key !== groupId),
   };
   keepSelections.value.delete(groupId);
 }
+
+// ======================== 状态标签 ========================
+const statusLabels: Record<string, string> = {
+  draft: '草稿',
+  published: '已发布',
+  archived: '已归档',
+};
+
+const statusDotColor: Record<string, string> = {
+  draft: 'bg-yellow-500',
+  published: 'bg-emerald-500',
+  archived: 'bg-gray-400',
+};
 
 // ======================== 统计 ========================
 const totalToMerge = computed(() => {
@@ -212,7 +264,7 @@ const totalToMerge = computed(() => {
       <div v-else class="space-y-4">
         <div
           v-for="group in scanResult.groups"
-          :key="group.group_id"
+          :key="group.group_key"
           class="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <!-- 组标题 -->
           <div class="border-b border-border bg-muted/30 px-4 py-3">
@@ -228,12 +280,13 @@ const totalToMerge = computed(() => {
                 </Badge>
               </div>
               <Button
+                type="button"
                 size="xs"
-                :disabled="executingGroups.has(group.group_id)"
-                @click="handleMergeGroup(group.group_id)">
-                <Users v-if="!executingGroups.has(group.group_id)" class="mr-1 h-3 w-3" />
+                :disabled="executingGroups.has(group.group_key)"
+                @click="handleMergeGroup(group.group_key)">
+                <Users v-if="!executingGroups.has(group.group_key)" class="mr-1 h-3 w-3" />
                 <Users v-else class="mr-1 h-3 w-3 animate-spin" />
-                {{ executingGroups.has(group.group_id) ? '合并中...' : '合并此组' }}
+                {{ executingGroups.has(group.group_key) ? '合并中...' : '合并此组' }}
               </Button>
             </div>
           </div>
@@ -244,42 +297,93 @@ const totalToMerge = computed(() => {
               <div
                 v-for="author in group.authors"
                 :key="author.id"
-                class="author-card rounded-lg border p-3 transition-all"
+                class="author-card rounded-lg border transition-all"
                 :class="{
-                  'is-keep': keepSelections.get(group.group_id) === author.id,
+                  'is-keep': keepSelections.get(group.group_key) === author.id,
                 }">
-                <div class="mb-2 flex items-center justify-between">
-                  <label class="flex cursor-pointer items-center gap-1.5">
-                    <input
-                      type="radio"
-                      :name="`keep-${group.group_id}`"
-                      :checked="keepSelections.get(group.group_id) === author.id"
-                      class="h-3.5 w-3.5 accent-primary"
-                      @change="setKeepId(group.group_id, author.id)" />
-                    <span class="text-xs font-medium">
-                      {{ keepSelections.get(group.group_id) === author.id ? '保留' : '设为保留' }}
-                    </span>
-                  </label>
+                <div class="p-3">
+                  <div class="mb-2 flex items-center justify-between">
+                    <label class="flex cursor-pointer items-center gap-1.5">
+                      <input
+                        type="radio"
+                        :name="`keep-${group.group_key}`"
+                        :checked="keepSelections.get(group.group_key) === author.id"
+                        class="h-3.5 w-3.5 accent-primary"
+                        @change="setKeepId(group.group_key, author.id)" />
+                      <span class="text-xs font-medium">
+                        {{ keepSelections.get(group.group_key) === author.id ? '保留' : '设为保留' }}
+                      </span>
+                    </label>
+                  </div>
+
+                  <div class="space-y-1.5">
+                    <div class="flex items-center gap-2 text-sm font-medium">
+                      {{ author.name }}
+                      <span v-if="author.name_traditional" class="text-xs text-muted-foreground">
+                        ({{ author.name_traditional }})
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span v-if="author.dynasty" class="dynasty-tag">{{ author.dynasty }}</span>
+                      <span v-else class="text-muted-foreground/50">未知朝代</span>
+                    </div>
+                    <div class="flex items-center gap-1 text-xs">
+                      <BookUser class="h-3 w-3 text-muted-foreground" />
+                      <span class="font-medium tabular-nums">{{ author.poem_count ?? 0 }}</span>
+                      <span class="text-muted-foreground">首诗歌</span>
+                    </div>
+                    <div v-if="author.biography" class="line-clamp-2 text-xs text-muted-foreground">
+                      {{ author.biography }}
+                    </div>
+                  </div>
                 </div>
 
-                <div class="space-y-1.5">
-                  <div class="flex items-center gap-2 text-sm font-medium">
-                    {{ author.name }}
-                    <span v-if="author.name_traditional" class="text-xs text-muted-foreground">
-                      ({{ author.name_traditional }})
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span v-if="author.dynasty" class="dynasty-tag">{{ author.dynasty }}</span>
-                    <span v-else class="text-muted-foreground/50">未知朝代</span>
-                  </div>
-                  <div class="flex items-center gap-1 text-xs">
-                    <BookUser class="h-3 w-3 text-muted-foreground" />
-                    <span class="font-medium tabular-nums">{{ author.poem_count ?? 0 }}</span>
-                    <span class="text-muted-foreground">首诗歌</span>
-                  </div>
-                  <div v-if="author.biography" class="line-clamp-2 text-xs text-muted-foreground">
-                    {{ author.biography }}
+                <!-- 诗歌预览展开按钮 -->
+                <div v-if="(author.poem_count ?? 0) > 0" class="border-t border-border">
+                  <button
+                    type="button"
+                    class="flex w-full items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/30"
+                    @click="togglePoemPreview(author.id)">
+                    <template v-if="loadingPoems.has(author.id)">
+                      <Loader2 class="h-3 w-3 animate-spin" />
+                      加载中...
+                    </template>
+                    <template v-else-if="isAuthorExpanded(author.id)">
+                      <ChevronUp class="h-3 w-3" />
+                      收起诗歌
+                    </template>
+                    <template v-else>
+                      <ChevronDown class="h-3 w-3" />
+                      预览诗歌
+                    </template>
+                  </button>
+                </div>
+
+                <!-- 诗歌列表 -->
+                <div
+                  v-if="isAuthorExpanded(author.id) && authorPoems.get(author.id)"
+                  class="border-t border-border bg-muted/20 p-3">
+                  <div class="max-h-48 space-y-1.5 overflow-y-auto">
+                    <div
+                      v-for="poem in authorPoems.get(author.id)"
+                      :key="poem.id"
+                      class="flex items-center justify-between gap-2 rounded px-2 py-1 text-xs hover:bg-muted/30">
+                      <span class="truncate font-medium" :title="poem.title">
+                        {{ poem.title }}
+                      </span>
+                      <span
+                        class="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5"
+                        :class="
+                          poem.status === 'published'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : poem.status === 'archived'
+                              ? 'bg-gray-400/10 text-gray-500'
+                              : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                        ">
+                        <span class="h-1.5 w-1.5 rounded-full" :class="statusDotColor[poem.status]" />
+                        {{ statusLabels[poem.status] || poem.status }}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -72,7 +72,7 @@ export interface AuthorDedupScanParams {
 
 /** 作者查重组 */
 export interface AuthorDedupGroup {
-  group_id: string;
+  group_key: string;
   match_reason: string;
   match_key: string;
   author_count: number;

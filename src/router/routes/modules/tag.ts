@@ -4,12 +4,12 @@ const routes: RouteRecordRaw[] = [
   {
     meta: {
       icon: 'lucide:tags',
-      order: 20,
-      title: 'page.category.title',
+      order: 21,
+      title: 'page.tag.title',
     },
-    name: 'CategoryList',
-    path: '/category',
-    component: () => import('#/views/category/list.vue'),
+    name: 'TagList',
+    path: '/tag',
+    component: () => import('#/views/tag/list.vue'),
   },
 ];
 

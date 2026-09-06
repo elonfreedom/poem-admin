@@ -1,10 +1,10 @@
 <script lang="ts" setup >
 import type { CreatePoetryParams, Poetry } from '#/api';
 
-import { onMounted, ref, useTemplateRef } from 'vue';
+import { computed, nextTick, onMounted, ref, useTemplateRef } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { Save, Trash2 } from 'lucide-vue-next';
+import { ChevronDown, Save, Trash2, Wand2 } from 'lucide-vue-next';
 
 import { Button } from '#/components/ui/button';
 import {
@@ -18,7 +18,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '#/components/ui/alert-dialog';
-import { Card, CardContent } from '#/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '#/components/ui/card';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '#/components/ui/collapsible';
 import { Input } from '#/components/ui/input';
 import { Label } from '#/components/ui/label';
 import {
@@ -31,15 +41,17 @@ import {
 import { Textarea } from '#/components/ui/textarea';
 
 import PageHeader from '#/components/PageHeader.vue';
-import InputWithPinyin from '#/components/InputWithPinyin.vue';
 import AuthorSelect from '#/components/AuthorSelect.vue';
+import CategorySelect from '#/components/CategorySelect.vue';
+import PinyinInput from '#/components/PinyinInput.vue';
+import TagInput from '#/components/TagInput.vue';
 import {
   deletePoetryApi,
   getPoetryDetailApi,
   updatePoetryApi,
 } from '#/api';
 import type { AuthorOption } from '#/api/core/author';
-import { formatDateTime } from '#/lib/utils';
+import { formatDateTime, formatPoetryContent } from '#/lib/utils';
 import { toast } from 'vue-sonner';
 
 const route = useRoute();
@@ -53,13 +65,15 @@ const id = Number(route.params.id);
 const titlePinyinRef = useTemplateRef('titlePinyin');
 const contentPinyinRef = useTemplateRef('contentPinyin');
 
-// 简体文本（可修正）
-const titleSc = ref('');
-const contentSc = ref('');
-
 // 作者相关
 const selectedAuthorId = ref<number | undefined>(undefined);
 const authorText = ref('');
+
+// 标签
+const tags = ref<string[]>([]);
+
+// 辅助内容折叠状态
+const auxiliaryOpen = ref(false);
 
 const statusLabels: Record<string, string> = {
   draft: '草稿',
@@ -76,15 +90,17 @@ const statusColors: Record<string, string> = {
 // 表单数据
 const formData = ref({
   title: '',
+  title_sc: '',
   author: '',
+  author_sc: '',
   dynasty: '',
   category_id: undefined as number | undefined,
   content: '',
+  content_sc: '',
   translation: '',
   appreciation: '',
   cover_url: '',
   source: '',
-  tags: '',
   status: 'draft',
 });
 
@@ -113,43 +129,91 @@ function handleAuthorIdChange(value: number | undefined) {
   }
 }
 
+// 内容字数统计
+const contentLength = computed(() => {
+  return [...formData.value.content].length;
+});
+
+// 统计一行中的非标点汉字数
+function countChars(line: string): number {
+  return [...line].filter((c) => !/[，。、；：！？""''（）《》【】\s]/.test(c)).length;
+}
+
+// 格式化内容（简体同步，拼音按行重组）
+async function handleFormatContent() {
+  const tc = formatPoetryContent(formData.value.content);
+  const sc = formatPoetryContent(formData.value.content_sc);
+
+  // 获取当前拼音音节
+  const syllables = (contentPinyinRef.value?.getValue() || '').trim().split(/\s+/).filter(Boolean);
+
+  // 繁体行
+  const tcLines = tc.split('\n');
+  // 简体行
+  const scLines = sc.split('\n');
+  const maxLines = Math.max(tcLines.length, scLines.length);
+  while (tcLines.length < maxLines) tcLines.push('');
+  while (scLines.length < maxLines) scLines.push('');
+
+  formData.value.content = tcLines.join('\n');
+  formData.value.content_sc = scLines.join('\n');
+
+  // 按繁体行重新分组拼音
+  let idx = 0;
+  const linePinyin: string[] = [];
+  for (const line of tcLines) {
+    const n = countChars(line);
+    if (n === 0) {
+      linePinyin.push('');
+    } else {
+      const slice = syllables.slice(idx, idx + n);
+      linePinyin.push(slice.join(' '));
+      idx += n;
+    }
+  }
+  // 等待 PinyinInput 的 chars 更新后，调用其内置格式化方法
+  await nextTick();
+  contentPinyinRef.value?.formatPinyin(tcLines.join('\n'));
+}
+
 async function fetchDetail() {
   loading.value = true;
   try {
     const data = await getPoetryDetailApi(id);
     detail.value = data;
-    // 设置简体文本
-    titleSc.value = data.title_sc || '';
-    contentSc.value = data.content_sc || '';
     // 设置作者
     authorText.value = data.author || '';
     selectedAuthorId.value = data.author_id;
+    // 设置标签
+    tags.value = data.tags || [];
     formData.value = {
       title: data.title || '',
+      title_sc: data.title_sc || '',
       author: data.author || '',
+      author_sc: data.author_sc || '',
       dynasty: data.dynasty || '',
       category_id: data.category_id,
       content: data.content || '',
+      content_sc: data.content_sc || '',
       translation: data.translation || '',
       appreciation: data.appreciation || '',
       cover_url: data.cover_url || '',
       source: data.source || '',
-      tags: data.tags?.join(', ') || '',
       status: data.status || 'draft',
     };
-    // 等组件渲染后再设置拼音
+    // 设置拼音（等组件渲染后）
     setTimeout(() => {
       if (data.title_pinyin) {
-        titlePinyinRef.value?.setPinyinList(
-          data.title_pinyin.split(/\s+/).filter(Boolean),
-        );
+        titlePinyinRef.value?.setValue(data.title_pinyin);
       }
       if (data.content_pinyin) {
-        contentPinyinRef.value?.setPinyinList(
-          data.content_pinyin.split(/\s+/).filter(Boolean),
-        );
+        contentPinyinRef.value?.setValue(data.content_pinyin);
       }
     }, 100);
+    // 如果有翻译或赏析，默认展开辅助内容
+    if (data.translation || data.appreciation) {
+      auxiliaryOpen.value = true;
+    }
   } finally {
     loading.value = false;
   }
@@ -175,18 +239,11 @@ async function handleSubmit() {
     const submitData = {
       ...formData.value,
       author: authorText.value,
+      author_sc: formData.value.author_sc,
       author_id: selectedAuthorId.value,
-      title_pinyin: titlePinyinRef.value?.getPinyinString() || '',
-      content_pinyin: contentPinyinRef.value?.getPinyinString() || '',
-      title_sc: titlePinyinRef.value?.getSimplifiedString() || titleSc.value,
-      content_sc:
-        contentPinyinRef.value?.getSimplifiedString() || contentSc.value,
-      tags: formData.value.tags
-        ? String(formData.value.tags)
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : [],
+      title_pinyin: titlePinyinRef.value?.getValue() || '',
+      content_pinyin: contentPinyinRef.value?.getValue() || '',
+      tags: tags.value,
     };
     await updatePoetryApi(id, submitData as CreatePoetryParams);
     toast.success('保存成功');
@@ -253,7 +310,6 @@ onMounted(fetchDetail);
       <!-- 元信息卡片 -->
       <Card v-if="detail">
         <CardContent class="pt-6">
-          <h3 class="mb-3 text-sm font-medium text-muted-foreground">基本信息</h3>
           <div class="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
             <div class="flex items-center gap-2">
               <span class="text-muted-foreground">ID</span>
@@ -298,175 +354,274 @@ onMounted(fetchDetail);
         </CardContent>
       </Card>
 
-      <!-- 表单卡片 -->
-      <Card>
-        <CardContent class="pt-6">
-          <h3 class="mb-4 text-sm font-medium text-muted-foreground">编辑内容</h3>
-          <form class="space-y-4" @submit.prevent="handleSubmit">
-            <!-- 标题（带拼音） -->
+      <form @submit.prevent="handleSubmit">
+        <!-- 核心内容 -->
+        <Card class="mb-4">
+          <CardHeader class="pb-3">
+            <CardTitle class="text-base">核心内容</CardTitle>
+          </CardHeader>
+          <CardContent class="space-y-4">
+            <!-- 标题 + 拼音 -->
             <div class="space-y-2">
               <Label for="title">
                 标题 <span class="text-destructive">*</span>
               </Label>
-              <InputWithPinyin
-                id="title"
+              <div class="flex items-center gap-2">
+                <span class="inline-block rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">繁体</span>
+                <Input
+                  id="title"
+                  v-model="formData.title"
+                  placeholder="请输入标题"
+                  class="flex-1"
+                />
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="inline-block rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">简体</span>
+                <Input
+                  id="title_sc"
+                  v-model="formData.title_sc"
+                  placeholder="简体标题（可选）"
+                  class="flex-1 text-sm"
+                />
+              </div>
+              <PinyinInput
                 ref="titlePinyin"
-                v-model="formData.title"
-                :simplified-value="titleSc"
+                :text-value="formData.title"
                 type="input"
-                placeholder="请输入标题"
-                show-convert
-                @update:simplified-value="titleSc = $event"
+                placeholder="标题拼音（自动生成或手动输入）"
               />
               <p v-if="errors.title" class="text-sm text-destructive">
                 {{ errors.title }}
               </p>
             </div>
 
-            <!-- 作者（搜索选择） -->
+            <!-- 内容 + 拼音 -->
             <div class="space-y-2">
-              <Label>
-                作者 <span class="text-destructive">*</span>
-              </Label>
-              <AuthorSelect
-                v-model="selectedAuthorId"
-                :author-name="authorText"
-                @select="handleAuthorSelect"
-                @update:model-value="handleAuthorIdChange"
-              />
-              <p v-if="errors.author" class="text-sm text-destructive">
-                {{ errors.author }}
-              </p>
-            </div>
-
-            <!-- 朝代（随作者绑定，选择作者后自动填充） -->
-            <div class="space-y-2">
-              <Label for="dynasty">朝代</Label>
-              <Input
-                id="dynasty"
-                v-model="formData.dynasty"
-                :disabled="!!selectedAuthorId"
-                placeholder="选择作者后自动填充"
-              />
-            </div>
-
-            <!-- 分类ID -->
-            <div class="space-y-2">
-              <Label for="category_id">分类ID</Label>
-              <Input
-                id="category_id"
-                v-model.number="formData.category_id"
-                type="number"
-                :min="1"
-                placeholder="请输入分类ID"
-              />
-            </div>
-
-            <!-- 内容（带拼音） -->
-            <div class="space-y-2">
-              <Label for="content">
-                内容 <span class="text-destructive">*</span>
-              </Label>
-              <InputWithPinyin
-                id="content"
+              <div class="flex items-center justify-between">
+                <Label for="content">
+                  内容 <span class="text-destructive">*</span>
+                </Label>
+                <Button type="button" variant="ghost" size="xs" class="h-6 text-xs text-muted-foreground" @click="handleFormatContent">
+                  <Wand2 class="mr-1 h-3 w-3" />
+                  一键格式化
+                </Button>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="mt-2 inline-block rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">繁体</span>
+                <Textarea
+                  id="content"
+                  v-model="formData.content"
+                  :rows="6"
+                  placeholder="请输入诗歌内容，每句一行"
+                  class="resize-y flex-1"
+                />
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="mt-2 inline-block rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">简体</span>
+                <Textarea
+                  id="content_sc"
+                  v-model="formData.content_sc"
+                  :rows="6"
+                  placeholder="简体内容（可选），行数与繁体自动对应"
+                  class="resize-y flex-1 text-sm"
+                />
+              </div>
+              <PinyinInput
                 ref="contentPinyin"
-                v-model="formData.content"
-                :simplified-value="contentSc"
+                :text-value="formData.content"
+                :display-text="formData.content_sc || formData.content"
                 type="textarea"
-                :rows="4"
-                placeholder="请输入内容"
-                show-convert
-                @update:simplified-value="contentSc = $event"
+                placeholder="内容拼音（自动生成或手动输入），每行对应一行文字"
               />
-              <p v-if="errors.content" class="text-sm text-destructive">
-                {{ errors.content }}
-              </p>
+              <div class="flex items-center justify-between">
+                <p v-if="errors.content" class="text-sm text-destructive">
+                  {{ errors.content }}
+                </p>
+                <span class="ml-auto text-xs text-muted-foreground">
+                  {{ contentLength }} 字
+                </span>
+              </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <!-- 翻译 -->
-            <div class="space-y-2">
-              <Label for="translation">翻译</Label>
-              <Textarea
-                id="translation"
-                v-model="formData.translation"
-                :rows="4"
-                placeholder="请输入翻译（可选）"
-              />
-            </div>
+        <!-- 作者 + 分类标签（双列） -->
+        <div class="mb-4 grid gap-4 md:grid-cols-2">
+          <!-- 作者信息 -->
+          <Card>
+            <CardHeader class="pb-3">
+              <CardTitle class="text-base">作者信息</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-4">
+              <!-- 作者（搜索选择） -->
+              <div class="space-y-2">
+                <Label>
+                  作者 <span class="text-destructive">*</span>
+                </Label>
+                <AuthorSelect
+                  v-model="selectedAuthorId"
+                  :author-name="authorText"
+                  @select="handleAuthorSelect"
+                  @update:model-value="handleAuthorIdChange"
+                />
+                <p v-if="errors.author" class="text-sm text-destructive">
+                  {{ errors.author }}
+                </p>
+              </div>
 
-            <!-- 赏析 -->
-            <div class="space-y-2">
-              <Label for="appreciation">赏析</Label>
-              <Textarea
-                id="appreciation"
-                v-model="formData.appreciation"
-                :rows="4"
-                placeholder="请输入赏析（可选）"
-              />
-            </div>
+              <!-- 简体作者 -->
+              <div class="space-y-2">
+                <Label for="author_sc">简体作者</Label>
+                <Input
+                  id="author_sc"
+                  v-model="formData.author_sc"
+                  placeholder="如：李白（可选）"
+                />
+              </div>
 
-            <!-- 封面图URL -->
-            <div class="space-y-2">
-              <Label for="cover_url">封面图URL</Label>
-              <Input
-                id="cover_url"
-                v-model="formData.cover_url"
-                placeholder="请输入封面图URL"
-              />
-            </div>
+              <!-- 朝代（随作者绑定，选择作者后自动填充） -->
+              <div class="space-y-2">
+                <Label for="dynasty">朝代</Label>
+                <Input
+                  id="dynasty"
+                  v-model="formData.dynasty"
+                  :disabled="!!selectedAuthorId"
+                  placeholder="选择作者后自动填充"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-            <!-- 来源 -->
-            <div class="space-y-2">
-              <Label for="source">来源</Label>
-              <Input
-                id="source"
-                v-model="formData.source"
-                placeholder="如《唐诗三百首》《宋词三百首》"
-              />
-            </div>
+          <!-- 分类与标签 -->
+          <Card>
+            <CardHeader class="pb-3">
+              <CardTitle class="text-base">分类与标签</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-4">
+              <!-- 分类 -->
+              <div class="space-y-2">
+                <Label>分类</Label>
+                <CategorySelect v-model="formData.category_id" />
+              </div>
 
-            <!-- 标签 -->
-            <div class="space-y-2">
-              <Label for="tags">标签</Label>
-              <Input
-                id="tags"
-                v-model="formData.tags"
-                placeholder="输入标签后按回车添加"
-              />
-            </div>
+              <!-- 标签 -->
+              <div class="space-y-2">
+                <Label>标签</Label>
+                <TagInput v-model="tags" />
+              </div>
 
-            <!-- 状态 -->
-            <div class="space-y-2">
-              <Label for="status">状态</Label>
-              <Select v-model="formData.status">
-                <SelectTrigger>
-                  <SelectValue placeholder="请选择状态" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem
-                    v-for="opt in statusOptions"
-                    :key="opt.value"
-                    :value="opt.value"
-                  >
-                    {{ opt.label }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <!-- 状态 -->
+              <div class="space-y-2">
+                <Label for="status">状态</Label>
+                <Select v-model="formData.status">
+                  <SelectTrigger>
+                    <SelectValue placeholder="请选择状态" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      v-for="opt in statusOptions"
+                      :key="opt.value"
+                      :value="opt.value"
+                    >
+                      {{ opt.label }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-            <!-- 提交按钮 -->
-            <div class="flex gap-2">
-              <Button type="submit" :loading="submitting">
-                <Save class="mr-2 h-4 w-4" />
-                保存
-              </Button>
-              <Button variant="outline" @click="router.push('/poetry/list')">
-                取消
-              </Button>
+        <!-- 辅助内容（可折叠） -->
+        <Card class="mb-4">
+          <Collapsible v-model:open="auxiliaryOpen">
+            <CollapsibleTrigger as-child>
+              <CardHeader class="cursor-pointer pb-3 hover:bg-muted/50">
+                <CardTitle class="flex items-center justify-between text-base">
+                  <span>辅助内容</span>
+                  <span class="flex items-center gap-2">
+                    <span class="text-xs font-normal text-muted-foreground">
+                      翻译 / 赏析
+                    </span>
+                    <ChevronDown
+                      class="h-4 w-4 text-muted-foreground transition-transform"
+                      :class="{ 'rotate-180': auxiliaryOpen }"
+                    />
+                  </span>
+                </CardTitle>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent class="space-y-4">
+                <!-- 翻译 -->
+                <div class="space-y-2">
+                  <Label for="translation">翻译</Label>
+                  <Textarea
+                    id="translation"
+                    v-model="formData.translation"
+                    :rows="6"
+                    placeholder="请输入翻译（可选）"
+                    class="resize-y"
+                  />
+                </div>
+
+                <!-- 赏析 -->
+                <div class="space-y-2">
+                  <Label for="appreciation">赏析</Label>
+                  <Textarea
+                    id="appreciation"
+                    v-model="formData.appreciation"
+                    :rows="6"
+                    placeholder="请输入赏析（可选）"
+                    class="resize-y"
+                  />
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+
+        <!-- 附加信息 -->
+        <Card class="mb-4">
+          <CardHeader class="pb-3">
+            <CardTitle class="text-base">附加信息</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div class="grid gap-4 md:grid-cols-2">
+              <!-- 来源 -->
+              <div class="space-y-2">
+                <Label for="source">来源</Label>
+                <Input
+                  id="source"
+                  v-model="formData.source"
+                  placeholder="如《唐诗三百首》《宋词三百首》"
+                />
+              </div>
+
+              <!-- 封面图URL -->
+              <div class="space-y-2">
+                <Label for="cover_url">封面图URL</Label>
+                <Input
+                  id="cover_url"
+                  v-model="formData.cover_url"
+                  placeholder="请输入封面图URL"
+                />
+              </div>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <!-- 提交按钮 -->
+        <div class="flex items-center gap-2">
+          <Button type="submit" :loading="submitting">
+            <Save class="mr-2 h-4 w-4" />
+            保存
+          </Button>
+          <Button variant="outline" @click="router.push('/poetry/list')">
+            取消
+          </Button>
+        </div>
+      </form>
     </div>
   </div>
 </template>

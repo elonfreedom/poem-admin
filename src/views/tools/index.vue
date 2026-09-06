@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useRouter } from 'vue-router';
 
-import { ArrowLeft, BookOpen, CopyX, Eraser, Link, Languages, Type, Users } from 'lucide-vue-next';
+import { ArrowLeft, BookOpen, CopyX, Eraser, Link, Languages, Tags, Type, Users } from 'lucide-vue-next';
 
 import { Button } from '#/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card';
@@ -14,10 +14,25 @@ import {
   cleanupAuthorNamesScApi,
   convertAuthorNamesTraditionalApi,
   generateAuthorsApi,
+  syncTagsApi,
 } from '#/api';
 import { toast } from 'vue-sonner';
 
 const router = useRouter();
+
+// 同步诗文标签到标签表
+async function onSyncTags() {
+  if (!confirm('扫描所有诗文的 tags 字段，将不重复的标签写入标签表，并统计引用数。')) {
+    return;
+  }
+  const promise = syncTagsApi();
+  toast.promise(promise, {
+    loading: '正在同步...',
+    success: (result: any) =>
+      `同步完成：共 ${result.total_tags} 个标签，新增 ${result.created} 个，更新 ${result.updated} 个`,
+    error: '同步失败',
+  });
+}
 
 // 从诗歌提取作者
 async function onGenerateAuthors() {
@@ -163,6 +178,14 @@ const tools = [
     buttonText: '开始匹配',
   },
   {
+    icon: Tags,
+    title: '同步诗文标签',
+    description:
+      '扫描所有诗文的 tags 字段，将不重复的标签写入标签表，并统计每个标签的引用数。',
+    onClick: onSyncTags,
+    buttonText: '开始同步',
+  },
+  {
     icon: Type,
     title: '批量生成简体',
     description:
@@ -216,6 +239,9 @@ const tools = [
           </li>
           <li>
             <strong>批量关联</strong>：将诗歌与作者库匹配，建立关联关系
+          </li>
+          <li>
+            <strong>同步诗文标签</strong>：将诗文 tags 字段同步到标签表，统计引用数
           </li>
           <li>
             <strong>批量生成简体</strong>：为所有诗歌生成简体文本，补充作者名繁体（可选）

@@ -266,12 +266,46 @@ function isEmpty(value: unknown): boolean {
   return false;
 }
 
+// ==================== 诗歌内容格式化 ====================
+
+/**
+ * 诗歌内容一键格式化
+ * - 统一换行符为 \n
+ * - 去除每行首尾空白
+ * - 去除多余空行（连续空行合并为一个）
+ * - 按句末标点（。！？；）自动换行
+ */
+function formatPoetryContent(text: string): string {
+  if (!text) return '';
+
+  // 统一换行符
+  let result = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // 按句末标点拆分（标点后如果没有换行则插入换行）
+  result = result.replace(/([。！？；])([^」』）)\n])/g, '$1\n$2');
+
+  // 按行处理
+  const lines = result
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line, index, arr) => {
+      // 去除连续空行（保留单个空行作为段落分隔）
+      if (line === '') {
+        return arr[index - 1] !== '';
+      }
+      return true;
+    });
+
+  return lines.join('\n');
+}
+
 export {
   cn,
   downloadBlob,
   downloadCsv,
   formatDate,
   formatDateTime,
+  formatPoetryContent,
   formatRelativeTime,
   isEmpty,
   mergeRouteModules,

@@ -87,6 +87,10 @@ export async function deletePoetryApi(id: number) {
   return requestClient.delete(`/poems/${id}`);
 }
 
+export async function batchDeletePoetryApi(ids: number[]) {
+  return requestClient.post('/poems/batch/delete', { ids });
+}
+
 export async function updatePoetryStatusApi(id: number, status: string) {
   return requestClient.put<Poetry>(`/poems/${id}/status`, { status });
 }
@@ -317,4 +321,26 @@ export interface DedupMergeResult {
 /** 合并去重（智能合并字段后归档） */
 export function mergeDedupApi(params: DedupMergeParams) {
   return requestClient.post<DedupMergeResult>('/tools/dedup/merge', params);
+}
+
+// ============================================================
+// 标签同步工具
+// ============================================================
+
+/** 标签同步结果 */
+export interface SyncTagsResult {
+  /** 诗文标签去重后的总数 */
+  total_tags: number;
+  /** 新增到标签表的数量 */
+  created: number;
+  /** 已跳过的数量 */
+  skipped: number;
+  /** 更新引用数的数量 */
+  updated: number;
+  message: string;
+}
+
+/** 从诗文 tags 字段同步到标签表 */
+export function syncTagsApi() {
+  return requestClient.post<SyncTagsResult>('/tools/sync-tags');
 }
