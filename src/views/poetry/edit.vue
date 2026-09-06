@@ -1,7 +1,7 @@
 <script lang="ts" setup >
 import type { CreatePoetryParams, Poetry } from '#/api';
 
-import { computed, nextTick, onMounted, ref, useTemplateRef } from 'vue';
+import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { ChevronDown, Save, Trash2, Wand2 } from 'lucide-vue-next';
@@ -134,9 +134,9 @@ const contentLength = computed(() => {
   return [...formData.value.content].length;
 });
 
-// 统计一行中的非标点汉字数
+// 统计一行中的汉字数（仅中文字符）
 function countChars(line: string): number {
-  return [...line].filter((c) => !/[，。、；：！？""''（）《》【】\s]/.test(c)).length;
+  return [...line].filter((c) => /[一-鿿㐀-䶿]/.test(c)).length;
 }
 
 // 格式化内容（简体同步，拼音按行重组）
@@ -175,6 +175,67 @@ async function handleFormatContent() {
   await nextTick();
   contentPinyinRef.value?.formatPinyin(tcLines.join('\n'));
 }
+
+// 标记：是否正在同步中（防止循环触发）
+const syncingContent = ref(false);
+
+/**
+ * 将 sourceText 的 line 结构应用到 targetText 上
+ * 例如 source 有 3 行 [5字, 5字, 7字]，则 target 也按 [5,5,7] 分行
+ */
+function applyLineStructure(sourceText: string, targetText: string): string {
+  const sourceLines = sourceText.split('\n');
+  const targetChars = [...targetText].filter((c) => c !== '\n');
+  const result: string[] = [];
+  let charIdx = 0;
+
+  for (const line of sourceLines) {
+    const lineCharCount = [...line].filter((c) => c !== '\r').length;
+    if (lineCharCount === 0) {
+      result.push('');
+      continue;
+    }
+    const slice = targetChars.slice(charIdx, charIdx + lineCharCount);
+    result.push(slice.join(''));
+    charIdx += slice.length;
+  }
+
+  // 如果 target 还有剩余字符，追加到最后一行
+  if (charIdx < targetChars.length) {
+    const remaining = targetChars.slice(charIdx).join('');
+    if (result.length > 0) {
+      result[result.length - 1] += remaining;
+    } else {
+      result.push(remaining);
+    }
+  }
+
+  return result.join('\n');
+}
+
+// 监听繁体内容变化，同步简体行结构
+watch(() => formData.value.content, (newVal) => {
+  if (syncingContent.value) return;
+  if (!formData.value.content_sc) return;
+  syncingContent.value = true;
+  const synced = applyLineStructure(newVal, formData.value.content_sc);
+  if (synced !== formData.value.content_sc) {
+    formData.value.content_sc = synced;
+  }
+  nextTick(() => { syncingContent.value = false; });
+});
+
+// 监听简体内容变化，同步繁体行结构
+watch(() => formData.value.content_sc, (newVal) => {
+  if (syncingContent.value) return;
+  if (!formData.value.content) return;
+  syncingContent.value = true;
+  const synced = applyLineStructure(newVal, formData.value.content);
+  if (synced !== formData.value.content) {
+    formData.value.content = synced;
+  }
+  nextTick(() => { syncingContent.value = false; });
+});
 
 async function fetchDetail() {
   loading.value = true;
