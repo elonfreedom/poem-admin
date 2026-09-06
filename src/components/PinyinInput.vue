@@ -43,7 +43,7 @@ const chars = displayChars;
 
 // 非标点字符的索引映射（拼音输入格用）
 const charIndices = computed(() => {
-  return chars.value.map((c, i) => (isPunctuation(c) ? -1 : i)).filter((i) => i >= 0);
+  return chars.value.map((c, i) => (!isPinyinChar(c) ? -1 : i)).filter((i) => i >= 0);
 });
 
 // 拼音数组（仅非标点字符）
@@ -184,9 +184,9 @@ async function handleGenerate() {
   }
 }
 
-// 判断标点
-function isPunctuation(char: string): boolean {
-  return /[，。、；：！？""''（）《》【】\s]/.test(char);
+// 判断是否为需要拼音的字符（仅中文汉字）
+function isPinyinChar(char: string): boolean {
+  return /[一-鿿㐀-䶿]/.test(char);
 }
 
 // 格式化拼音（chars 变化后 watch 自动重映射，此处触发 emit）
@@ -247,7 +247,7 @@ defineExpose({
           >
             <!-- 非标点：拼音输入 -->
             <input
-              v-if="!isPunctuation(char)"
+              v-if="isPinyinChar(char)"
               :value="pinyinList[getPinyinIndexFromLine(lineIdx, charIdx)] || ''"
               :disabled="disabled"
               class="pinyin-cell-input"
@@ -259,7 +259,7 @@ defineExpose({
             <!-- 标点：占位空白 -->
             <span v-else class="pinyin-cell-punct">&nbsp;</span>
             <!-- 汉字/标点 -->
-            <span class="pinyin-cell-char" :class="{ 'punct': isPunctuation(char) }">{{ char }}</span>
+            <span class="pinyin-cell-char" :class="{ 'punct': !isPinyinChar(char) }">{{ char }}</span>
           </div>
         </div>
       </div>
